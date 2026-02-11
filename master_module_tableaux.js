@@ -1,5 +1,10 @@
 /* ============================================
-   📦 MODULE COMPLÉMENTAIRE MASTER PSE v16.8
+   📦 MODULE COMPLÉMENTAIRE MASTER PSE v17.0
+   
+   MODIFICATIONS v17 (Février 2026) :
+   - Values Vrai/Faux parlantes ("vrai"/"faux" au lieu de "true"/"false")
+   - Compatible avec les 3 invariants de l'instruction v3.3
+   
    COMPLET : Tableaux, Articles, Séparateurs, 
    Encadrés, Vrai/Faux, Texte+Image, PAD2
    ============================================ */
@@ -1088,12 +1093,12 @@ function vfAddItemToContainer(vfContainer, text) {
         <div class="vf-item-content">
             <div class="vf-item-text" contenteditable="true">${text}</div>
             <div class="vf-item-choices">
-                <label class="vf-choice" onclick="vfSelectChoice(this, 'true')">
-                    <input type="radio" name="${itemName}" value="true" class="reponse-eleve">
+                <label class="vf-choice" onclick="vfSelectChoice(this, 'vrai')">
+                    <input type="radio" name="${itemName}" value="vrai" class="reponse-eleve">
                     <span class="vf-choice-label">${label1}</span>
                 </label>
-                <label class="vf-choice" onclick="vfSelectChoice(this, 'false')">
-                    <input type="radio" name="${itemName}" value="false" class="reponse-eleve">
+                <label class="vf-choice" onclick="vfSelectChoice(this, 'faux')">
+                    <input type="radio" name="${itemName}" value="faux" class="reponse-eleve">
                     <span class="vf-choice-label">${label2}</span>
                 </label>
             </div>
@@ -1138,8 +1143,8 @@ function vfRenumberItems(vfContainer) {
 // Sélectionner un choix (visuel)
 window.vfSelectChoice = function(label, value) {
     const choices = label.closest('.vf-item-choices').querySelectorAll('.vf-choice');
-    choices.forEach(c => c.classList.remove('selected-true', 'selected-false'));
-    label.classList.add(value === 'true' ? 'selected-true' : 'selected-false');
+    choices.forEach(c => c.classList.remove('selected-true', 'selected-false', 'selected-vrai', 'selected-faux'));
+    label.classList.add(value === 'vrai' ? 'selected-vrai' : 'selected-faux');
 };
 
 // Mettre à jour les labels
@@ -1544,7 +1549,6 @@ window.ftRemoveColumn = function(btn) {
         });
         
         console.log("✅ Module Complet v16.8 chargé !");
-    }
     
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', doInject);
     else doInject();
