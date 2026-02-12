@@ -475,15 +475,33 @@
 
     window.MasterWidgets.register("SEPARATOR", {
         kind: "visual",
-        countAsQuestion: false
+        countAsQuestion: false,
+        exportToBlueprint() { return []; },
+        exportToStudentHTML() {
+            return `<div class="document-box" style="background:#f8fafc;border-color:#cbd5e1;"><hr style="border:none;border-top:3px solid #94a3b8;"></div>`;
+        },
+        importFromBlueprint() { return null; }
     });
     window.MasterWidgets.register("TITLE", {
         kind: "visual",
-        countAsQuestion: false
+        countAsQuestion: false,
+        exportToBlueprint() { return []; },
+        exportToStudentHTML(block) {
+            const text = block.querySelector('.q-enonce')?.value || "";
+            return `<div class="document-box" style="background:#eef2ff;border-color:#a5b4fc;"><h4 style="margin:0;">${text}</h4></div>`;
+        },
+        importFromBlueprint() { return null; }
     });
     window.MasterWidgets.register("BOX_NOTE", {
         kind: "visual",
-        countAsQuestion: false
+        countAsQuestion: false,
+        exportToBlueprint() { return []; },
+        exportToStudentHTML(block) {
+            const title = block.querySelector('.q-enonce')?.value || "Note";
+            const content = (block.querySelector('.box-note-content')?.value || "").replace(/\n/g, "<br>");
+            return `<div class="document-box" style="background:#fff7ed;border-color:#fdba74;"><h4>${title}</h4><p>${content}</p></div>`;
+        },
+        importFromBlueprint() { return null; }
     });
     window.MasterWidgets.register("ENC_KQQOQCP", createEncWidgetDef("Compléter le tableau QQOQCP", ["Quoi ?", "Qui ?", "Où ?", "Quand ?", "Comment ?", "Pourquoi ?"]));
     window.MasterWidgets.register("ENC_PAD", createEncWidgetDef("Compléter le tableau PAD", ["Opérateur", "Danger", "Situation dangereuse", "Événement déclencheur", "Dommage"]));
@@ -841,7 +859,7 @@
         }
         
         // Vérification des questions
-        const questions = document.querySelectorAll('.question-block:not(.doc-block)');
+        const questions = getCountedQuestionBlocks();
         if (questions.length === 0) {
             issues.push("❌ Aucune question créée");
             return { issues, warnings, canExport: false };
@@ -1526,6 +1544,10 @@ ${embeddedBlueprintScript}
                 item.correct = block.querySelector('input[value="vrai"]')?.checked ? 'vrai' : 'faux';
             } else if (type === 'SHORT' || type === 'NUMBER') {
                 item.validAnswers = block.querySelector('.valid-answers')?.value || "";
+            } else if (type === 'BOX_NOTE') {
+                item.noteContent = block.querySelector('.box-note-content')?.value || "";
+            } else if (type === 'SEPARATOR' || type === 'TITLE') {
+                // Pas de données supplémentaires
             } else if (isEncType(type)) {
                 item.titreEncadre = item.enonce;
                 item.lignes = getEncRows(block).map((row) => ({
@@ -1615,6 +1637,10 @@ ${embeddedBlueprintScript}
                 if (fauxEl) fauxEl.checked = !isVrai;
             } else if (type === 'SHORT' || type === 'NUMBER') {
                 safeSetValue(block.querySelector('.valid-answers'), q.validAnswers || "");
+            } else if (type === 'BOX_NOTE') {
+                safeSetValue(block.querySelector('.box-note-content'), q.noteContent || "");
+            } else if (type === 'SEPARATOR' || type === 'TITLE') {
+                // Rien de spécifique
             } else if (isEncType(type)) {
                 const rows = getEncRows(block);
                 const savedRows = Array.isArray(q.lignes) ? q.lignes : [];
@@ -1737,23 +1763,32 @@ ${embeddedBlueprintScript}
             const block = blocks[blocks.length - 1];
             if (!block) return;
 
-            safeSetValue(block.querySelector('.q-enonce'), group.title);
-            safeSetValue(block.querySelector('.q-comp'), group.competence);
-            const totalPoints = group.rows.reduce((sum, r) => sum + (parseFloat(r.item.bareme || r.item.points || 0) || 0), 0);
+            const widgetDef = getWidgetDef(group.encType);
+            const imported = widgetDef && typeof widgetDef.importFromBlueprint === "function"
+                ? widgetDef.importFromBlueprint(group.rows.map((r) => r.item))
+                : null;
+
+            safeSetValue(block.querySelector('.q-enonce'), imported?.enonce || group.title);
+            safeSetValue(block.querySelector('.q-comp'), imported?.competence || group.competence);
+            const totalPoints = imported?.points ?? group.rows.reduce((sum, r) => sum + (parseFloat(r.item.bareme || r.item.points || 0) || 0), 0);
             safeSetValue(block.querySelector('.q-points'), Number(totalPoints.toFixed(2)));
-            const firstExp = getFlexibleText(group.rows[0]?.item, ['reponseAttendue', 'explication', 'correction', 'justification']);
+            const firstExp = imported?.explanation || getFlexibleText(group.rows[0]?.item, ['reponseAttendue', 'explication', 'correction', 'justification']);
             safeSetValue(block.querySelector('.q-explain'), firstExp);
 
             const rowMap = new Map(getEncRows(block).map((r) => [normalizeEncLabel(r.dataset.label), r]));
             getEncRows(block).forEach((row) => setEncRowEnabled(row, false));
-            group.rows.forEach((entry) => {
+            const sourceRows = Array.isArray(imported?.lignes) ? imported.lignes : group.rows.map((entry) => ({
+                label: entry.label,
+                subqid: entry.item.qid,
+                enabled: true,
+                preview: Array.isArray(entry.item.reponseCorrecte) ? entry.item.reponseCorrecte.join("; ") : String(entry.item.reponseCorrecte || "")
+            }));
+            sourceRows.forEach((entry) => {
                 const row = rowMap.get(normalizeEncLabel(entry.label));
                 if (!row) return;
-                row.dataset.subqid = entry.item.qid || row.dataset.subqid || createStableQid();
-                setEncRowEnabled(row, true);
-                const raw = entry.item.reponseCorrecte ?? entry.item.correct ?? "";
-                const preview = Array.isArray(raw) ? raw.join("; ") : String(raw || "");
-                safeSetValue(row.querySelector('.enc-expected'), preview);
+                row.dataset.subqid = entry.subqid || row.dataset.subqid || createStableQid();
+                setEncRowEnabled(row, entry.enabled !== false);
+                safeSetValue(row.querySelector('.enc-expected'), entry.preview || "");
             });
         });
 
@@ -1955,6 +1990,31 @@ ${embeddedBlueprintScript}
             const bareme = parseFloat(block.querySelector('.q-points').value) || 1;
             const competence = block.querySelector('.q-comp').value;
             usedComps.add(competence);
+            const widgetDef = getWidgetDef(type);
+
+            if (widgetDef) {
+                const ctx = { qCounter, qidBase, enoncePlain, enonceHtml: enonce, bareme, competence };
+                let widgetItems = [];
+                let widgetHtml = "";
+                try {
+                    if (typeof widgetDef.exportToBlueprint === "function") {
+                        const out = widgetDef.exportToBlueprint(block, ctx);
+                        if (Array.isArray(out)) widgetItems = out;
+                    }
+                    if (typeof widgetDef.exportToStudentHTML === "function") {
+                        widgetHtml = widgetDef.exportToStudentHTML(block, ctx) || "";
+                    }
+                } catch (err) {
+                    console.warn("Widget export error:", type, err);
+                }
+
+                if (widgetItems.length) blueprint.content.push(...widgetItems);
+                if (widgetHtml) studentHtmlQuestions += widgetHtml;
+                if (widgetDef.countAsQuestion !== false && (widgetItems.length || widgetHtml)) {
+                    qCounter++;
+                }
+                return;
+            }
 
             if (type === 'QCU') {
                 let options = [];
