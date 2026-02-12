@@ -308,6 +308,7 @@
     }
     .question-block { animation: slideIn 0.3s ease-out; }
 </style>
+<script src="master-widgets.js" defer></script>
 </head>
 <body>
 
@@ -355,6 +356,9 @@
     <button class="btn-tool btn-vf" onclick="addBlock('VF')">✅ Vrai/Faux</button>
     <button class="btn-tool btn-text" onclick="addBlock('NUMBER')">🔢 Nombre</button>
     <button class="btn-tool btn-text" onclick="addBlock('SHORT')">✍️ Texte</button>
+    <button class="btn-tool btn-text" onclick="addBlock('SEPARATOR')">➖ Séparateur</button>
+    <button class="btn-tool btn-text" onclick="addBlock('TITLE')">🔤 Titre</button>
+    <button class="btn-tool btn-text" onclick="addBlock('BOX_NOTE')">🗒️ Note</button>
     <button class="btn-tool btn-text" onclick="addBlock('ENC_KQQOQCP')">🧩 Encadré 6W</button>
     <button class="btn-tool btn-text" onclick="addBlock('ENC_PAD')">⚠️ Encadré PAD</button>
     <button class="btn-tool btn-text" onclick="addBlock('ENC_ITAMAMI')">🧰 Encadré ITAMaMi</button>
@@ -370,27 +374,152 @@
 
 <script>
     let qCount = 0;
-    const ENC_BLOCK_DEFS = {
-        ENC_KQQOQCP: {
-            title: "Compléter le tableau QQOQCP",
-            lines: ["Quoi ?", "Qui ?", "Où ?", "Quand ?", "Comment ?", "Pourquoi ?"]
-        },
-        ENC_PAD: {
-            title: "Compléter le tableau PAD",
-            lines: ["Opérateur", "Danger", "Situation dangereuse", "Événement déclencheur", "Dommage"]
-        },
-        ENC_ITAMAMI: {
-            title: "Compléter le tableau ITAMaMi",
-            lines: ["Individu", "Tâche", "Activité", "Matériel", "Milieu"]
-        }
-    };
+    window.MasterWidgets = window.MasterWidgets || (function() {
+        const registry = {};
+        return {
+            register(type, def) {
+                if (!type || !def || typeof def !== "object") return;
+                registry[type] = def;
+            },
+            get(type) {
+                return registry[type] || null;
+            },
+            all() {
+                return registry;
+            },
+            init() {
+                this._initialized = true;
+            }
+        };
+    })();
+
+    function createEncWidgetDef(title, lines) {
+        return {
+            kind: "enc",
+            countAsQuestion: true,
+            title,
+            lines,
+            exportToBlueprint(block, ctx) {
+                const activeRows = getActiveEncRows(block);
+                if (!activeRows.length) return [];
+                const rowPoints = splitPoints(ctx.bareme, activeRows.length);
+                const explanation = block.querySelector('.q-explain')?.value?.trim() || "";
+                return activeRows.map((row, idx) => {
+                    const subqid = row.dataset.subqid || createStableQid();
+                    row.dataset.subqid = subqid;
+                    const lineLabel = row.dataset.label || `Ligne ${idx + 1}`;
+                    return {
+                        type: "question",
+                        qid: subqid,
+                        label: `${ctx.qCounter}${String.fromCharCode(97 + idx)}`,
+                        competence: ctx.competence,
+                        bareme: rowPoints[idx] ?? 0,
+                        inputType: "texte_exact",
+                        autocorrect: true,
+                        questionText: `${ctx.enoncePlain} — ${lineLabel}`,
+                        reponseCorrecte: [],
+                        reponseAttendue: explanation
+                    };
+                });
+            },
+            exportToStudentHTML(block, ctx) {
+                const activeRows = getActiveEncRows(block);
+                if (!activeRows.length) return "";
+                let html = `
+                    <div class="question-block">
+                        <span class="q-label">${ctx.qCounter}</span><span class="q-comp">${ctx.competence}</span><span class="q-points">${ctx.bareme} pts</span>
+                        <div class="q-text">${ctx.enonceHtml}</div>
+                        <div class="table-wrapper">
+                            <table class="eval-table">
+                                <tbody>
+                `;
+                activeRows.forEach((row, idx) => {
+                    const lineLabel = row.dataset.label || `Ligne ${idx + 1}`;
+                    const subqid = row.dataset.subqid || createStableQid();
+                    row.dataset.subqid = subqid;
+                    html += `
+                        <tr>
+                            <td>${lineLabel}</td>
+                            <td><textarea class="reponse-eleve answer-input" data-qid="${subqid}" rows="2" style="width:100%; min-height:54px;" placeholder="Votre réponse"></textarea></td>
+                        </tr>
+                    `;
+                });
+                html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                return html;
+            },
+            importFromBlueprint(items) {
+                const first = items[0] || {};
+                const titlePart = String(first.questionText || "").split("—")[0].trim();
+                const competence = first.competence || first.comp || "C1";
+                const total = items.reduce((sum, i) => sum + (parseFloat(i.bareme || i.points || 0) || 0), 0);
+                return {
+                    enonce: titlePart,
+                    competence,
+                    points: Number(total.toFixed(2)),
+                    explanation: getFlexibleText(first, ['reponseAttendue', 'explication', 'correction', 'justification']),
+                    lignes: items.map((i) => ({
+                        label: String(i.questionText || "").split("—")[1]?.trim() || "",
+                        subqid: i.qid || createStableQid(),
+                        enabled: true,
+                        preview: Array.isArray(i.reponseCorrecte) ? i.reponseCorrecte.join("; ") : String(i.reponseCorrecte || "")
+                    }))
+                };
+            }
+        };
+    }
+
+    window.MasterWidgets.register("SEPARATOR", {
+        kind: "visual",
+        countAsQuestion: false
+    });
+    window.MasterWidgets.register("TITLE", {
+        kind: "visual",
+        countAsQuestion: false
+    });
+    window.MasterWidgets.register("BOX_NOTE", {
+        kind: "visual",
+        countAsQuestion: false
+    });
+    window.MasterWidgets.register("ENC_KQQOQCP", createEncWidgetDef("Compléter le tableau QQOQCP", ["Quoi ?", "Qui ?", "Où ?", "Quand ?", "Comment ?", "Pourquoi ?"]));
+    window.MasterWidgets.register("ENC_PAD", createEncWidgetDef("Compléter le tableau PAD", ["Opérateur", "Danger", "Situation dangereuse", "Événement déclencheur", "Dommage"]));
+    window.MasterWidgets.register("ENC_ITAMAMI", createEncWidgetDef("Compléter le tableau ITAMaMi", ["Individu", "Tâche", "Activité", "Matériel", "Milieu"]));
 
     function createStableQid() {
         return `q_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     }
 
+    function getWidgetDef(type) {
+        return window.MasterWidgets && typeof window.MasterWidgets.get === "function"
+            ? window.MasterWidgets.get(type)
+            : null;
+    }
+
+    function isWidgetType(type) {
+        return !!getWidgetDef(type);
+    }
+
+    function isVisualWidgetType(type) {
+        const def = getWidgetDef(type);
+        return !!(def && def.countAsQuestion === false);
+    }
+
+    function countsAsQuestionType(type) {
+        if (type === "DOC") return false;
+        return !isVisualWidgetType(type);
+    }
+
+    function getCountedQuestionBlocks() {
+        return Array.from(document.querySelectorAll('.question-block')).filter((block) => countsAsQuestionType(block.dataset.type));
+    }
+
     function isEncType(type) {
-        return !!ENC_BLOCK_DEFS[type];
+        const def = getWidgetDef(type);
+        return !!(def && def.kind === "enc");
     }
 
     function normalizeEncLabel(label) {
@@ -399,10 +528,11 @@
 
     function getEncTypeFromLabel(label) {
         const norm = normalizeEncLabel(label);
-        const allTypes = Object.keys(ENC_BLOCK_DEFS);
+        const allTypes = Object.keys(window.MasterWidgets.all()).filter((type) => isEncType(type));
         for (let i = 0; i < allTypes.length; i++) {
             const type = allTypes[i];
-            const found = ENC_BLOCK_DEFS[type].lines.some((line) => normalizeEncLabel(line) === norm);
+            const lines = getWidgetDef(type)?.lines || [];
+            const found = lines.some((line) => normalizeEncLabel(line) === norm);
             if (found) return type;
         }
         return null;
@@ -448,10 +578,10 @@
 
     // --- MISE À JOUR COMPTEUR ---
     function updateStats() {
-        const questions = document.querySelectorAll('.question-block:not(.doc-block)').length;
+        const questions = getCountedQuestionBlocks().length;
         let totalPoints = 0;
-        document.querySelectorAll('.q-points').forEach(el => {
-            totalPoints += parseFloat(el.value) || 0;
+        getCountedQuestionBlocks().forEach((block) => {
+            totalPoints += parseFloat(block.querySelector('.q-points')?.value) || 0;
         });
         document.getElementById('quiz-stats').textContent = 
             `${questions} question${questions > 1 ? 's' : ''} - ${totalPoints} pt${totalPoints > 1 ? 's' : ''}`;
@@ -481,8 +611,15 @@
 
     function renumberQuestions() {
         let i = 1;
-        document.querySelectorAll('.question-block:not(.doc-block)').forEach(el => {
+        getCountedQuestionBlocks().forEach(el => {
             el.querySelector('.q-num').textContent = i++;
+        });
+        document.querySelectorAll('.question-block').forEach((el) => {
+            const type = el.dataset.type;
+            if (!countsAsQuestionType(type)) {
+                const numEl = el.querySelector('.q-num');
+                if (numEl) numEl.textContent = "•";
+            }
         });
         qCount = i - 1;
     }
@@ -507,10 +644,10 @@
                 </div>
             `;
         } else {
-            qCount++;
+            if (countsAsQuestionType(type)) qCount++;
             headerHtml = `
                 <div class="q-header">
-                    <div class="q-num">${qCount}</div>
+                    <div class="q-num">${countsAsQuestionType(type) ? qCount : "•"}</div>
                     <textarea class="q-enonce auto-grow" rows="1" placeholder="Énoncé de la question..." oninput="autoResize(this)"></textarea>
                     <div class="q-controls">
                         <select class="q-comp" style="width:80px; font-weight:bold;" onchange="updateStats()">
@@ -582,7 +719,7 @@
             `;
         }
         else if (isEncType(type)) {
-            const def = ENC_BLOCK_DEFS[type];
+            const def = getWidgetDef(type);
             const rowsHtml = def.lines.map((lineLabel) => `
                 <tr class="enc-row" data-label="${lineLabel}" data-subqid="${createStableQid()}" data-enabled="1">
                     <td class="enc-label-cell">${lineLabel}</td>
@@ -619,13 +756,49 @@
                 autoResize(enonceField);
             }
         }
+        else if (type === 'SEPARATOR') {
+            content.innerHTML = `
+                <div class="config-zone" style="background:#f8fafc; border-color:#cbd5e1;">
+                    <span class="config-label">Séparateur visuel (non exporté dans le blueprint)</span>
+                    <hr style="border:none; border-top:3px solid #94a3b8; margin:12px 0;">
+                </div>
+            `;
+        }
+        else if (type === 'TITLE') {
+            content.innerHTML = `
+                <div class="config-zone" style="background:#f8fafc; border-color:#cbd5e1;">
+                    <span class="config-label">Titre intercalé (non exporté dans le blueprint)</span>
+                    <p style="font-weight:700; color:#334155;">Ce bloc sert uniquement de mise en forme.</p>
+                </div>
+            `;
+            const block = content.closest(".question-block");
+            const enonceField = block ? block.querySelector(".q-enonce") : null;
+            if (enonceField && !enonceField.value.trim()) {
+                enonceField.value = "Titre de section";
+                autoResize(enonceField);
+            }
+        }
+        else if (type === 'BOX_NOTE') {
+            content.innerHTML = `
+                <div class="config-zone" style="background:#fff7ed; border-color:#fdba74;">
+                    <span class="config-label">Encadré note/aide (non exporté dans le blueprint)</span>
+                    <textarea class="box-note-content auto-grow" rows="3" oninput="autoResize(this)" placeholder="Texte de note ou d'aide..."></textarea>
+                </div>
+            `;
+            const block = content.closest(".question-block");
+            const enonceField = block ? block.querySelector(".q-enonce") : null;
+            if (enonceField && !enonceField.value.trim()) {
+                enonceField.value = "Note";
+                autoResize(enonceField);
+            }
+        }
         else if (type === 'DOC') {
             content.innerHTML = `
                 <textarea class="doc-content auto-grow" style="min-height:100px; width:100%;" placeholder="Contenu du document..." oninput="autoResize(this)"></textarea>
             `;
         }
         
-        if (type !== 'DOC') {
+        if (type !== 'DOC' && type !== 'SEPARATOR' && type !== 'TITLE' && type !== 'BOX_NOTE') {
             content.innerHTML += `
                 <div style="margin-top:15px;">
                     <textarea class="q-explain auto-grow" rows="1" oninput="autoResize(this)" placeholder="💡 Explication pour la correction..." style="font-size:0.9em;color:#64748b;background:#f8fafc;border:2px dashed #cbd5e0;width:100%;border-radius:6px;padding:10px;"></textarea>
