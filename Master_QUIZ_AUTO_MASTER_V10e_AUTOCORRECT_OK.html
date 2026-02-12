@@ -140,6 +140,47 @@
         background: rgba(255,255,255,0.9); 
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
+    .enc-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 8px;
+    }
+    .enc-table th, .enc-table td {
+        border: 1px solid #cbd5e1;
+        padding: 10px;
+        vertical-align: top;
+    }
+    .enc-table th {
+        background: #eff6ff;
+        text-align: left;
+        color: #1e3a8a;
+    }
+    .enc-label-cell {
+        width: 34%;
+        font-weight: 700;
+        color: #1e293b;
+        background: #f8fafc;
+    }
+    .enc-answer-cell textarea {
+        width: 100%;
+        min-height: 56px;
+    }
+    .enc-row-disabled {
+        opacity: 0.45;
+    }
+    .enc-row-disabled .enc-expected {
+        pointer-events: none;
+        background: #e2e8f0;
+    }
+    .enc-toggle-btn {
+        border: 1px solid #94a3b8;
+        background: #fff;
+        border-radius: 6px;
+        cursor: pointer;
+        padding: 2px 8px;
+        font-weight: 700;
+        color: #334155;
+    }
     .correct-check { 
         width: 22px; height: 22px; cursor: pointer; accent-color: var(--success); 
         margin-top: 8px; transition: transform 0.2s;
@@ -314,6 +355,9 @@
     <button class="btn-tool btn-vf" onclick="addBlock('VF')">✅ Vrai/Faux</button>
     <button class="btn-tool btn-text" onclick="addBlock('NUMBER')">🔢 Nombre</button>
     <button class="btn-tool btn-text" onclick="addBlock('SHORT')">✍️ Texte</button>
+    <button class="btn-tool btn-text" onclick="addBlock('ENC_KQQOQCP')">🧩 Encadré 6W</button>
+    <button class="btn-tool btn-text" onclick="addBlock('ENC_PAD')">⚠️ Encadré PAD</button>
+    <button class="btn-tool btn-text" onclick="addBlock('ENC_ITAMAMI')">🧰 Encadré ITAMaMi</button>
     <span style="width:1px;background:rgba(255,255,255,0.2);margin:0 8px;"></span>
     <button class="btn-tool btn-doc" onclick="addBlock('DOC')">📄 Doc</button>
     <span style="width:1px;background:rgba(255,255,255,0.2);margin:0 8px;"></span>
@@ -326,6 +370,81 @@
 
 <script>
     let qCount = 0;
+    const ENC_BLOCK_DEFS = {
+        ENC_KQQOQCP: {
+            title: "Compléter le tableau QQOQCP",
+            lines: ["Quoi ?", "Qui ?", "Où ?", "Quand ?", "Comment ?", "Pourquoi ?"]
+        },
+        ENC_PAD: {
+            title: "Compléter le tableau PAD",
+            lines: ["Opérateur", "Danger", "Situation dangereuse", "Événement déclencheur", "Dommage"]
+        },
+        ENC_ITAMAMI: {
+            title: "Compléter le tableau ITAMaMi",
+            lines: ["Individu", "Tâche", "Activité", "Matériel", "Milieu"]
+        }
+    };
+
+    function createStableQid() {
+        return `q_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    }
+
+    function isEncType(type) {
+        return !!ENC_BLOCK_DEFS[type];
+    }
+
+    function normalizeEncLabel(label) {
+        return String(label || "").toLowerCase().replace(/\s+/g, " ").trim();
+    }
+
+    function getEncTypeFromLabel(label) {
+        const norm = normalizeEncLabel(label);
+        const allTypes = Object.keys(ENC_BLOCK_DEFS);
+        for (let i = 0; i < allTypes.length; i++) {
+            const type = allTypes[i];
+            const found = ENC_BLOCK_DEFS[type].lines.some((line) => normalizeEncLabel(line) === norm);
+            if (found) return type;
+        }
+        return null;
+    }
+
+    function setEncRowEnabled(row, enabled) {
+        row.dataset.enabled = enabled ? "1" : "0";
+        row.classList.toggle("enc-row-disabled", !enabled);
+        const answer = row.querySelector(".enc-expected");
+        if (answer) answer.disabled = !enabled;
+        const btn = row.querySelector(".enc-toggle-btn");
+        if (btn) {
+            btn.textContent = enabled ? "×" : "↺";
+            btn.title = enabled ? "Désactiver cette ligne" : "Réactiver cette ligne";
+        }
+    }
+
+    function toggleEncRow(btn) {
+        const row = btn.closest(".enc-row");
+        if (!row) return;
+        const enabled = row.dataset.enabled !== "0";
+        setEncRowEnabled(row, !enabled);
+    }
+
+    function getEncRows(block) {
+        return Array.from(block.querySelectorAll(".enc-row"));
+    }
+
+    function getActiveEncRows(block) {
+        return getEncRows(block).filter((row) => row.dataset.enabled !== "0");
+    }
+
+    function splitPoints(total, count) {
+        const c = Math.max(0, Number(count) || 0);
+        if (c === 0) return [];
+        const t = Number(total) || 0;
+        const base = Math.floor((t * 100) / c) / 100;
+        const points = Array.from({ length: c }, () => base);
+        const used = base * (c - 1);
+        points[c - 1] = Number((t - used).toFixed(2));
+        return points;
+    }
 
     // --- MISE À JOUR COMPTEUR ---
     function updateStats() {
@@ -375,7 +494,7 @@
         const div = document.createElement('div');
         div.className = `question-block ${type === 'DOC' ? 'doc-block' : ''}`;
         div.dataset.type = type;
-        div.dataset.qid = `q_${Date.now()}_${Math.floor(Math.random()*1000)}`; 
+        div.dataset.qid = createStableQid();
         
         let headerHtml = '';
         
@@ -461,6 +580,44 @@
                     <textarea class="valid-answers auto-grow" rows="1" oninput="autoResize(this)" placeholder="${type === 'NUMBER' ? 'Ex: 10' : 'Ex: Paris; la capitale'}" style="border:2px solid #22c55e; font-family:monospace; font-weight:bold; color:#15803d; width:100%;"></textarea>
                 </div>
             `;
+        }
+        else if (isEncType(type)) {
+            const def = ENC_BLOCK_DEFS[type];
+            const rowsHtml = def.lines.map((lineLabel) => `
+                <tr class="enc-row" data-label="${lineLabel}" data-subqid="${createStableQid()}" data-enabled="1">
+                    <td class="enc-label-cell">${lineLabel}</td>
+                    <td class="enc-answer-cell">
+                        <textarea class="enc-expected auto-grow" rows="2" oninput="autoResize(this)" placeholder="Réponse attendue (optionnelle)..."></textarea>
+                    </td>
+                    <td style="width:56px; text-align:center;">
+                        <button class="enc-toggle-btn" type="button" onclick="toggleEncRow(this)" title="Désactiver cette ligne">×</button>
+                    </td>
+                </tr>
+            `).join("");
+
+            content.innerHTML = `
+                <div class="config-zone" style="background:linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%); border-color:#a5b4fc;">
+                    <span class="config-label">🧩 Tableau encadré (${def.lines.length} lignes prédéfinies)</span>
+                    <table class="enc-table" aria-label="Tableau encadré">
+                        <thead>
+                            <tr>
+                                <th>Rubrique</th>
+                                <th>Réponse attendue / guide</th>
+                                <th>Actif</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rowsHtml}</tbody>
+                    </table>
+                </div>
+            `;
+
+            const block = content.closest(".question-block");
+            if (block) block.classList.add("enc-block");
+            const enonceField = block ? block.querySelector(".q-enonce") : null;
+            if (enonceField && !enonceField.value.trim()) {
+                enonceField.value = def.title;
+                autoResize(enonceField);
+            }
         }
         else if (type === 'DOC') {
             content.innerHTML = `
@@ -556,6 +713,13 @@
             if (type === 'SHORT' || type === 'NUMBER') {
                 const reponse = q.querySelector('.valid-answers').value.trim();
                 if (!reponse) issues.push(`❌ Question ${num} : réponse attendue manquante`);
+            }
+
+            if (isEncType(type)) {
+                const activeRows = getActiveEncRows(q);
+                if (activeRows.length === 0) {
+                    issues.push(`❌ Question ${num} : aucune ligne active dans l'encadré`);
+                }
             }
             
         });
@@ -1119,6 +1283,31 @@ ${embeddedBlueprintScript}
                 });
                 qCounter++;
             }
+            else if (isEncType(type)) {
+                const explanation = block.querySelector('.q-explain')?.value?.trim() || "[EXPLICATION DÉTAILLÉE À RÉDIGER]";
+                const activeRows = getActiveEncRows(block);
+                if (activeRows.length === 0) return;
+                const rowPoints = splitPoints(bareme, Math.max(1, activeRows.length));
+                activeRows.forEach((row, idx) => {
+                    const subqid = row.dataset.subqid || createStableQid();
+                    row.dataset.subqid = subqid;
+                    const lineLabel = row.dataset.label || `Ligne ${idx + 1}`;
+                    template.content.push({
+                        type: "question",
+                        qid: subqid,
+                        label: `${qCounter}${String.fromCharCode(97 + idx)}`,
+                        competence: competence,
+                        bareme: rowPoints[idx] ?? 0,
+                        inputType: "texte_exact",
+                        autocorrect: true,
+                        questionText: "[ÉNONCÉ À REMPLIR] — " + lineLabel,
+                        reponseCorrecte: [],
+                        reponseAttendue: explanation,
+                        explication: explanation
+                    });
+                });
+                qCounter++;
+            }
         });
 
         template.competences = Array.from(usedComps).sort();
@@ -1164,6 +1353,14 @@ ${embeddedBlueprintScript}
                 item.correct = block.querySelector('input[value="vrai"]')?.checked ? 'vrai' : 'faux';
             } else if (type === 'SHORT' || type === 'NUMBER') {
                 item.validAnswers = block.querySelector('.valid-answers')?.value || "";
+            } else if (isEncType(type)) {
+                item.titreEncadre = item.enonce;
+                item.lignes = getEncRows(block).map((row) => ({
+                    label: row.dataset.label || "",
+                    subqid: row.dataset.subqid || createStableQid(),
+                    enabled: row.dataset.enabled !== "0",
+                    preview: row.querySelector('.enc-expected')?.value || ""
+                }));
             }
 
             questions.push(item);
@@ -1245,6 +1442,21 @@ ${embeddedBlueprintScript}
                 if (fauxEl) fauxEl.checked = !isVrai;
             } else if (type === 'SHORT' || type === 'NUMBER') {
                 safeSetValue(block.querySelector('.valid-answers'), q.validAnswers || "");
+            } else if (isEncType(type)) {
+                const rows = getEncRows(block);
+                const savedRows = Array.isArray(q.lignes) ? q.lignes : [];
+                if (savedRows.length === 0) {
+                    rows.forEach((row) => setEncRowEnabled(row, true));
+                    return;
+                }
+                rows.forEach((row) => setEncRowEnabled(row, false));
+                savedRows.forEach((line) => {
+                    const row = rows.find((r) => normalizeEncLabel(r.dataset.label) === normalizeEncLabel(line.label));
+                    if (!row) return;
+                    row.dataset.subqid = line.subqid || row.dataset.subqid || createStableQid();
+                    setEncRowEnabled(row, line.enabled !== false);
+                    safeSetValue(row.querySelector('.enc-expected'), line.preview || "");
+                });
             }
         });
 
@@ -1319,14 +1531,67 @@ ${embeddedBlueprintScript}
     function reconstructFromJSON(data) {
         console.log("🔄 Début reconstruction BLINDÉE...", data);
         const items = Array.isArray(data.content) ? data.content : [];
+        const encGroups = {};
+        const singles = [];
+
         items.forEach((item, idx) => {
+            const qText = getFlexibleText(item, ['questionText', 'question', 'text', 'enonce', 'titre']);
+            const match = qText.match(/^(.*)\s+—\s+(.+)$/);
+            if (!match) {
+                singles.push({ item, idx });
+                return;
+            }
+
+            const titlePart = match[1].trim();
+            const linePart = match[2].trim();
+            const encType = getEncTypeFromLabel(linePart);
+            if (!encType) {
+                singles.push({ item, idx });
+                return;
+            }
+
+            const comp = item.competence || item.comp || "C1";
+            const groupKey = `${encType}|||${titlePart}|||${comp}`;
+            if (!encGroups[groupKey]) {
+                encGroups[groupKey] = { encType, title: titlePart, competence: comp, rows: [] };
+            }
+            encGroups[groupKey].rows.push({ item, label: linePart, idx });
+        });
+
+        Object.values(encGroups).forEach((group) => {
+            addBlock(group.encType, null);
+            const blocks = document.querySelectorAll('.question-block:not(.doc-block)');
+            const block = blocks[blocks.length - 1];
+            if (!block) return;
+
+            safeSetValue(block.querySelector('.q-enonce'), group.title);
+            safeSetValue(block.querySelector('.q-comp'), group.competence);
+            const totalPoints = group.rows.reduce((sum, r) => sum + (parseFloat(r.item.bareme || r.item.points || 0) || 0), 0);
+            safeSetValue(block.querySelector('.q-points'), Number(totalPoints.toFixed(2)));
+            const firstExp = getFlexibleText(group.rows[0]?.item, ['reponseAttendue', 'explication', 'correction', 'justification']);
+            safeSetValue(block.querySelector('.q-explain'), firstExp);
+
+            const rowMap = new Map(getEncRows(block).map((r) => [normalizeEncLabel(r.dataset.label), r]));
+            getEncRows(block).forEach((row) => setEncRowEnabled(row, false));
+            group.rows.forEach((entry) => {
+                const row = rowMap.get(normalizeEncLabel(entry.label));
+                if (!row) return;
+                row.dataset.subqid = entry.item.qid || row.dataset.subqid || createStableQid();
+                setEncRowEnabled(row, true);
+                const raw = entry.item.reponseCorrecte ?? entry.item.correct ?? "";
+                const preview = Array.isArray(raw) ? raw.join("; ") : String(raw || "");
+                safeSetValue(row.querySelector('.enc-expected'), preview);
+            });
+        });
+
+        singles.forEach(({ item, idx }) => {
             const inType = (item.inputType || "").toLowerCase();
             let type = "SHORT";
 
             if (inType === "checkbox" || inType === "select") type = "QCU";
             else if (inType === "vrai_faux") type = "VF";
             else if (inType === "number") type = "NUMBER";
-            else if (inType === "texte_exact") type = "SHORT";
+            else if (inType === "texte_exact" || inType === "short") type = "SHORT";
 
             const contentDiv = createBlockSkeleton(type, null);
             const block = contentDiv.closest('.question-block');
@@ -1512,7 +1777,8 @@ ${embeddedBlueprintScript}
             }
 
             const qidBase = block.dataset.qid;
-            const enonce = block.querySelector('.q-enonce').value.replace(/\n/g, '<br>');
+            const enoncePlain = block.querySelector('.q-enonce').value.trim();
+            const enonce = enoncePlain.replace(/\n/g, '<br>');
             const bareme = parseFloat(block.querySelector('.q-points').value) || 1;
             const competence = block.querySelector('.q-comp').value;
             usedComps.add(competence);
@@ -1550,7 +1816,7 @@ ${embeddedBlueprintScript}
                     bareme: bareme,
                     inputType: "select",
                     autocorrect: true,
-                    questionText: enonce,
+                    questionText: enoncePlain,
                     reponseCorrecte: correctVal,
                     reponseAttendue: finalExplanation,
                     options: options
@@ -1579,7 +1845,7 @@ ${embeddedBlueprintScript}
                     bareme: bareme,
                     inputType: "vrai_faux",
                     autocorrect: true,
-                    questionText: enonce,
+                    questionText: enoncePlain,
                     reponseCorrecte: isVrai ? "vrai" : "faux",
                     reponseAttendue: isVrai ? "Vrai" : "Faux"
                 });
@@ -1609,7 +1875,7 @@ ${embeddedBlueprintScript}
                     bareme: bareme,
                     inputType: isNum ? "number" : "texte_exact",
                     autocorrect: true,
-                    questionText: enonce,
+                    questionText: enoncePlain,
                     reponseCorrecte: isNum ? parseFloat(accepted[0]) : accepted,
                     reponseAttendue: accepted.join(" OU "),
                     tolerance: isNum ? 0 : undefined
@@ -1620,6 +1886,54 @@ ${embeddedBlueprintScript}
                         <span class="q-label">${qCounter}</span><span class="q-comp">${competence}</span><span class="q-points">${bareme} pts</span>
                         <div class="q-text">${enonce}</div>
                         <div><input type="${isNum?'number':'text'}" class="reponse-eleve answer-input" data-qid="${qidBase}" placeholder="Votre réponse"></div>
+                    </div>
+                `;
+                qCounter++;
+            }
+            else if (isEncType(type)) {
+                const activeRows = getActiveEncRows(block);
+                if (activeRows.length === 0) return;
+                const explanation = block.querySelector('.q-explain')?.value?.trim() || "";
+                const pointsPerRow = splitPoints(bareme, activeRows.length);
+
+                studentHtmlQuestions += `
+                    <div class="question-block">
+                        <span class="q-label">${qCounter}</span><span class="q-comp">${competence}</span><span class="q-points">${bareme} pts</span>
+                        <div class="q-text">${enonce}</div>
+                        <div class="table-wrapper">
+                            <table class="eval-table">
+                                <tbody>
+                `;
+
+                activeRows.forEach((row, idx) => {
+                    const lineLabel = row.dataset.label || `Ligne ${idx + 1}`;
+                    const subqid = row.dataset.subqid || createStableQid();
+                    row.dataset.subqid = subqid;
+                    const subLabel = `${qCounter}${String.fromCharCode(97 + idx)}`;
+                    blueprint.content.push({
+                        type: "question",
+                        qid: subqid,
+                        label: subLabel,
+                        competence: competence,
+                        bareme: pointsPerRow[idx] ?? 0,
+                        inputType: "texte_exact",
+                        autocorrect: true,
+                        questionText: `${enoncePlain} — ${lineLabel}`,
+                        reponseCorrecte: [],
+                        reponseAttendue: explanation
+                    });
+                    studentHtmlQuestions += `
+                        <tr>
+                            <td>${lineLabel}</td>
+                            <td><textarea class="reponse-eleve answer-input" data-qid="${subqid}" rows="2" style="width:100%; min-height:54px;" placeholder="Votre réponse"></textarea></td>
+                        </tr>
+                    `;
+                });
+
+                studentHtmlQuestions += `
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 `;
                 qCounter++;
