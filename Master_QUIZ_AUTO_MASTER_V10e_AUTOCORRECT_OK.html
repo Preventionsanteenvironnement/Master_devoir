@@ -321,6 +321,7 @@
     <button class="btn-tool btn-doc" onclick="addBlock('DOC')">📄 Doc</button>
     <span style="width:1px;background:rgba(255,255,255,0.2);margin:0 8px;"></span>
     <button class="btn-tool" style="background:linear-gradient(135deg, #8b5cf6, #7c3aed);" onclick="exportTemplate()">📤 Template IA</button>
+    <button class="btn-tool" style="background:linear-gradient(135deg, #0ea5e9, #0284c7);" onclick="saveDraftJSON()">💾 Sauvegarder JSON</button>
     <button class="btn-tool" style="background:linear-gradient(135deg, #06b6d4, #0891b2);" onclick="importJSON()">📥 Import JSON</button>
     <span style="width:1px;background:rgba(255,255,255,0.2);margin:0 8px;"></span>
     <button class="btn-tool btn-export" onclick="attemptExport()">🚀 EXPORTER</button>
@@ -439,7 +440,7 @@
             const containerId = `opts_${uid}`;
             content.innerHTML = `
                 <div class="config-zone">
-                    <span class="config-label">📝 Options (Cochez la/les bonne(s) réponse(s))</span>
+                    <span class="config-label">📝 Options (${type === 'QCU' ? 'Cochez la bonne réponse' : 'Cochez la/les bonne(s) réponse(s)'})</span>
                     <div id="${containerId}"></div>
                     <button onclick="addOption('${containerId}', '${type}')" style="margin-top:10px;font-size:0.85em;cursor:pointer;background:linear-gradient(135deg, #e9ecef, #dee2e6);border:none;padding:6px 12px;border-radius:6px;font-weight:bold;color:#495057;transition:all 0.2s;">+ Ajouter une option</button>
                 </div>
@@ -670,8 +671,14 @@
         showValidation(validation);
     }
 
-    function generateStudentTemplate(titre, devoirId, contentHTML, competences) {
+    function generateStudentTemplate(titre, devoirId, contentHTML, competences, blueprintData = null) {
         const compList = competences.map(c => `<li><span class="comp-tag">${c}</span></li>`).join('');
+        const embeddedBlueprintScript = blueprintData ? `
+<script>
+    window.__PSE_BLUEPRINT = ${JSON.stringify(blueprintData, null, 2)};
+<\/script>
+        ` : '';
+
         
         return `<!DOCTYPE html>
 <html lang="fr">
@@ -927,7 +934,11 @@
 
         if (typeof window.envoyerCopie === 'function') {
             try {
-                await window.envoyerCopie(code, { external: 0 }, { code: code, classe: "?" });
+                const classeLS = (localStorage.getItem('userClasse') || '').trim();
+                const elevePayload = classeLS
+                    ? { code: code, classe: classeLS, blueprintEmbedded: true }
+                    : { code: code, blueprintEmbedded: true };
+                await window.envoyerCopie(code, { external: 0 }, elevePayload);
                 btn.textContent = "✅ Envoyé !";
                 btn.style.background = "linear-gradient(135deg, #2ecc71, #27ae60)";
             } catch(e) {
@@ -943,15 +954,65 @@
     };
 <\/script>
 
+${embeddedBlueprintScript}
+
 <script type="module">
+    const statusEl = document.getElementById("envoi-status");
+    const segRaw = location.pathname.split("/").filter(Boolean)[0] || "";
+    const seg = segRaw.includes(".") ? "" : segRaw;
+    const prefixes = [];
+    if (seg) prefixes.push("/" + seg);
+    prefixes.push("/PSE");
+    prefixes.push("");
+    const uniquePrefixes = [...new Set(prefixes)];
+
+    function buildUrl(prefix, relPath) {
+        const p = prefix || "";
+        const base = p ? p.replace(/\/+$, "") : "";
+        const rel = String(relPath || "").replace(/^\/+/, "");
+        return (base ? base + "/" : "/") + rel;
+    }
+
+    async function importWithPrefixes(fileRelativePath, optionalRelativePaths = []) {
+        let lastError = null;
+        const attempts = [];
+
+        uniquePrefixes.forEach(prefix => attempts.push(buildUrl(prefix, fileRelativePath)));
+        optionalRelativePaths.forEach(opt => {
+            uniquePrefixes.forEach(prefix => attempts.push(buildUrl(prefix, opt)));
+        });
+
+        const uniqueAttempts = [...new Set(attempts)];
+
+        for (const url of uniqueAttempts) {
+            try {
+                console.warn("Tentative import:", url);
+                await import(url);
+                return url;
+            } catch (e) {
+                lastError = e;
+                console.warn("Import échoué:", url, e);
+            }
+        }
+
+        throw lastError || new Error("Impossible de charger le module: " + fileRelativePath);
+    }
+
     try {
-        await import("https://preventionsanteenvironnement.github.io/PSE/annuaire.js");
-        await import("https://preventionsanteenvironnement.github.io/PSE/assets/pse-runner.js");
-        document.getElementById('envoi-status').textContent = "Système prêt.";
+        statusEl.textContent = "Chargement des modules...";
+
+        const annuaireUrl = "https://preventionsanteenvironnement.github.io/PSE/annuaire.js";
+        const runnerUrl = "https://preventionsanteenvironnement.github.io/PSE/assets/pse-runner.js";
+
+        await import(annuaireUrl);
+        await import(runnerUrl);
+
+        console.log("Modules chargés:", { annuaireUrl, runnerUrl, seg, prefixes: uniquePrefixes });
+        statusEl.textContent = "Système prêt.";
     } catch(e) {
         console.error("Erreur modules:", e);
-        document.getElementById('envoi-status').textContent = "Erreur de chargement (vérifiez connexion).";
-        document.getElementById('envoi-status').style.color = "red";
+        statusEl.textContent = "Erreur de chargement des modules (chemins serveur à vérifier).";
+        statusEl.style.color = "red";
     }
 <\/script>
 </body>
@@ -982,7 +1043,7 @@
                     "Utiliser le PDF cours fourni comme référence"
                 ],
                 autorisations: [
-                    "Remplir uniquement : questionText, options[].label, reponseCorrecte, reponseAttendue",
+                    "Remplir uniquement : questionText, options[].label, reponseCorrecte, reponseAttendue, explication",
                     "Créer des énoncés adaptés au niveau " + niveau,
                     "OBLIGATOIRE : Rédiger une correction complète dans reponseAttendue",
                     "Corrections = explication pédagogique + justification + référence au cours",
@@ -1043,6 +1104,7 @@
                     questionText: "[ÉNONCÉ À REMPLIR]",
                     reponseCorrecte: type === 'QCU' ? "[ID_OPTION_CORRECTE]" : ["[IDS_OPTIONS_CORRECTES]"],
                     reponseAttendue: "[EXPLICATION DÉTAILLÉE À RÉDIGER]",
+                    explication: "[EXPLICATION DÉTAILLÉE À RÉDIGER]",
                     options: emptyOptions
                 });
                 qCounter++;
@@ -1058,7 +1120,8 @@
                     autocorrect: true,
                     questionText: "[ÉNONCÉ À REMPLIR]",
                     reponseCorrecte: "[vrai OU faux]",
-                    reponseAttendue: "[JUSTIFICATION DÉTAILLÉE]"
+                    reponseAttendue: "[JUSTIFICATION DÉTAILLÉE]",
+                    explication: "[EXPLICATION DÉTAILLÉE À RÉDIGER]"
                 });
                 qCounter++;
             }
@@ -1074,6 +1137,7 @@
                     questionText: "[ÉNONCÉ À REMPLIR]",
                     reponseCorrecte: type === 'NUMBER' ? "[NOMBRE]" : ["[RÉPONSE1]", "[RÉPONSE2]"],
                     reponseAttendue: "[EXPLICATION AVEC CALCUL/JUSTIFICATION]",
+                    explication: "[EXPLICATION DÉTAILLÉE À RÉDIGER]",
                     tolerance: type === 'NUMBER' ? 0 : undefined
                 });
                 qCounter++;
@@ -1092,6 +1156,7 @@
                         questionText: `Associer : [ÉLÉMENT_${i+1}]`,
                         reponseCorrecte: `[CORRESPONDANCE_${i+1}]`,
                         reponseAttendue: `[CORRESPONDANCE_${i+1}]`,
+                        explication: "[EXPLICATION DE LA CORRESPONDANCE]",
                         options: [
                             {value: "[CORRESPONDANCE_1]", label: "[CORRESPONDANCE_1]"},
                             {value: "[CORRESPONDANCE_2]", label: "[CORRESPONDANCE_2]"},
@@ -1114,7 +1179,8 @@
                         autocorrect: true,
                         questionText: `Texte à trous (${i+1})`,
                         reponseCorrecte: [`[MOT_TROU_${i+1}]`],
-                        reponseAttendue: "[EXPLICATION VOCABULAIRE/CONCEPT]"
+                        reponseAttendue: "[EXPLICATION VOCABULAIRE/CONCEPT]",
+                        explication: "[EXPLICATION DÉTAILLÉE À RÉDIGER]"
                     });
                 }
                 qCounter++;
@@ -1127,6 +1193,161 @@
         downloadFile(JSON.stringify(template, null, 4), `${devoirId}_TEMPLATE.json`, 'application/json');
         showNotification(`📤 Template IA exporté ! ${template.content.length} questions à remplir`, 'info');
     }
+    function saveDraftJSON() {
+        const titre = document.getElementById('titre-devoir').value || "";
+        const devoirId = document.getElementById('devoir-id').value || "";
+        const niveau = document.getElementById('niveau-cible').value || "";
+
+        const questions = [];
+        document.querySelectorAll('.question-block').forEach((block) => {
+            const type = block.dataset.type;
+            const item = {
+                type: type,
+                qid: block.dataset.qid || ""
+            };
+
+            if (type === 'DOC') {
+                item.docTitle = block.querySelector('.doc-title-input')?.value || "";
+                item.docContent = block.querySelector('.doc-content')?.value || "";
+                questions.push(item);
+                return;
+            }
+
+            item.enonce = block.querySelector('.q-enonce')?.value || "";
+            item.competence = block.querySelector('.q-comp')?.value || "C1";
+            item.points = parseFloat(block.querySelector('.q-points')?.value) || 0;
+            item.explanation = block.querySelector('.q-explain')?.value || "";
+
+            if (type === 'QCU' || type === 'QCM') {
+                item.options = [];
+                block.querySelectorAll('.option-row').forEach((row) => {
+                    item.options.push({
+                        text: row.querySelector('.opt-text')?.value || "",
+                        correct: !!row.querySelector('.correct-check')?.checked
+                    });
+                });
+            } else if (type === 'VF') {
+                item.correct = block.querySelector('input[value="vrai"]')?.checked ? 'vrai' : 'faux';
+            } else if (type === 'SHORT' || type === 'NUMBER') {
+                item.validAnswers = block.querySelector('.valid-answers')?.value || "";
+            } else if (type === 'MATCH') {
+                item.pairs = [];
+                block.querySelectorAll('.pair-row').forEach((row) => {
+                    item.pairs.push({
+                        left: row.querySelector('.pair-left')?.value || "",
+                        right: row.querySelector('.pair-right')?.value || ""
+                    });
+                });
+            } else if (type === 'CLOZE') {
+                item.clozeText = block.querySelector('.cloze-text')?.value || "";
+                item.clozeMode = !!block.querySelector('.cloze-mode')?.checked;
+            }
+
+            questions.push(item);
+        });
+
+        const draft = {
+            meta: {
+                titre,
+                devoirId,
+                niveau,
+                dateISO: new Date().toISOString(),
+                version: "master-quiz-auto"
+            },
+            questions,
+            options: {}
+        };
+
+        const safeId = String(devoirId || "").trim();
+        const fileName = safeId ? `${safeId}__draft.json` : `draft__${Date.now()}.json`;
+        downloadFile(JSON.stringify(draft, null, 2), fileName, 'application/json');
+        showNotification(`💾 Brouillon sauvegardé (${questions.length} blocs)`, 'info');
+    }
+
+    function restoreDraftJSON(data) {
+        if (!data || !Array.isArray(data.questions)) {
+            throw new Error("Format draft invalide");
+        }
+
+        const meta = data.meta || {};
+        document.getElementById('titre-devoir').value = meta.titre || data.titre || "";
+        document.getElementById('devoir-id').value = meta.devoirId || data.devoirId || "";
+        document.getElementById('niveau-cible').value = meta.niveau || data.niveau || "";
+        document.getElementById('quiz-content').innerHTML = '';
+        qCount = 0;
+
+        data.questions.forEach((q) => {
+            const type = q.type || 'SHORT';
+
+            if (type === 'DOC') {
+                const contentDiv = createBlockSkeleton('DOC', null);
+                const block = contentDiv.closest('.question-block');
+                if (q.qid) block.dataset.qid = q.qid;
+                safeSetValue(block.querySelector('.doc-title-input'), q.docTitle || "");
+                safeSetValue(block.querySelector('.doc-content'), q.docContent || "");
+                return;
+            }
+
+            addBlock(type, null);
+            const blocks = document.querySelectorAll('.question-block:not(.doc-block)');
+            const block = blocks[blocks.length - 1];
+            if (!block) return;
+            if (q.qid) block.dataset.qid = q.qid;
+
+            safeSetValue(block.querySelector('.q-enonce'), q.enonce || "");
+            safeSetValue(block.querySelector('.q-comp'), q.competence || "C1");
+            safeSetValue(block.querySelector('.q-points'), q.points ?? 0);
+            safeSetValue(block.querySelector('.q-explain'), q.explanation || "");
+
+            if (type === 'QCU' || type === 'QCM') {
+                const container = block.querySelector('div[id^="opts_"]');
+                if (container) {
+                    container.innerHTML = '';
+                    const opts = Array.isArray(q.options) ? q.options : [];
+                    (opts.length ? opts : [{ text: "", correct: false }, { text: "", correct: false }]).forEach((opt) => {
+                        addOption(container.id, type);
+                        const rows = container.querySelectorAll('.option-row');
+                        const row = rows[rows.length - 1];
+                        safeSetValue(row.querySelector('.opt-text'), opt.text || "");
+                        const ck = row.querySelector('.correct-check');
+                        if (ck) ck.checked = !!opt.correct;
+                    });
+                }
+            } else if (type === 'VF') {
+                const v = (q.correct || '').toString().toLowerCase();
+                const isVrai = v === 'vrai' || v === 'true' || v === 'v';
+                const vraiEl = block.querySelector('input[value="vrai"]');
+                const fauxEl = block.querySelector('input[value="faux"]');
+                if (vraiEl) vraiEl.checked = isVrai;
+                if (fauxEl) fauxEl.checked = !isVrai;
+            } else if (type === 'SHORT' || type === 'NUMBER') {
+                safeSetValue(block.querySelector('.valid-answers'), q.validAnswers || "");
+            } else if (type === 'MATCH') {
+                const container = block.querySelector('div[id^="match_"]');
+                if (container) {
+                    container.innerHTML = '';
+                    const pairs = Array.isArray(q.pairs) ? q.pairs : [];
+                    (pairs.length ? pairs : [{ left: "", right: "" }, { left: "", right: "" }]).forEach((pair) => {
+                        addPair(container.id);
+                        const rows = container.querySelectorAll('.pair-row');
+                        const row = rows[rows.length - 1];
+                        safeSetValue(row.querySelector('.pair-left'), pair.left || "");
+                        safeSetValue(row.querySelector('.pair-right'), pair.right || "");
+                    });
+                }
+            } else if (type === 'CLOZE') {
+                safeSetValue(block.querySelector('.cloze-text'), q.clozeText || "");
+                const modeEl = block.querySelector('.cloze-mode');
+                if (modeEl) modeEl.checked = !!q.clozeMode;
+            }
+        });
+
+        renumberQuestions();
+        updateStats();
+        document.getElementById('empty-msg').style.display = document.querySelectorAll('.question-block').length ? 'none' : 'block';
+        showNotification(`✅ Draft chargé (${data.questions.length} blocs)`, 'success');
+    }
+
 
     // ============================================================
     // 📥 IMPORT JSON CORRIGÉ (VERSION ROBUSTE)
@@ -1145,30 +1366,36 @@
                 try {
                     const data = JSON.parse(e.target.result);
                     
-                    // Validation
+                    if (!confirm("⚠️ ATTENTION : Tout le questionnaire actuel sera effacé et remplacé par le contenu du fichier.\n\nContinuer ?")) {
+                        return;
+                    }
+
+                    // Draft master (sauvegarde JSON)
+                    const isDraftJSON = Array.isArray(data.questions) && (!Array.isArray(data.content) || (data.meta && data.meta.version === "master-quiz-auto"));
+                    if (isDraftJSON) {
+                        return;
+                    }
+
+                    // Validation import existant (template IA / blueprint)
                     if (!data.content || !Array.isArray(data.content)) {
                         throw new Error("Format JSON invalide");
                     }
 
-                    if (!confirm("⚠️ ATTENTION : Tout le questionnaire actuel sera effacé et remplacé par le contenu du fichier.\n\nContinuer ?")) {
-                        return;
-                    }
-                    
                     // 1. Nettoyage
-                    document.getElementById('quiz-content').innerHTML = '';
+                    document.getElementById("quiz-content").innerHTML = "";
                     qCount = 0;
-                    
+
                     // 2. Remplissage En-tête
-                    document.getElementById('titre-devoir').value = (data.titre || "").replace(' [À COMPLÉTER]', '');
-                    document.getElementById('devoir-id').value = data.devoirId || "";
-                    document.getElementById('niveau-cible').value = data.niveau || "Bac Pro";
+                    document.getElementById("titre-devoir").value = (data.titre || "").replace(" [À COMPLÉTER]", "");
+                    document.getElementById("devoir-id").value = data.devoirId || "";
+                    document.getElementById("niveau-cible").value = data.niveau || "Bac Pro";
 
                     // 3. Reconstruction intelligente
-                    showNotification("🔄 Reconstruction en cours...", 'info');
-                    
+                    showNotification("🔄 Reconstruction en cours...", "info");
+
                     setTimeout(() => {
                         reconstructFromJSON(data);
-                        showNotification(`✅ Import réussi ! ${document.querySelectorAll('.question-block').length} questions récupérées.`, 'success');
+                        showNotification("✅ Import réussi ! " + document.querySelectorAll(".question-block").length + " questions récupérées.", "success");
                         updateStats();
                     }, 200);
                     
@@ -1490,6 +1717,11 @@
         const titre = document.getElementById('titre-devoir').value || "Devoir";
         const niveau = document.getElementById('niveau-cible').value || "Bac Pro";
 
+        if (!/^[A-Za-z0-9_-]+$/.test(devoirId)) {
+            alert("ID unique invalide.\nUtilisez uniquement des lettres, chiffres, tirets (-) et underscores (_).");
+            return;
+        }
+
         // Génération des données (même logique)
         const blueprint = {
             id: devoirId,
@@ -1742,7 +1974,7 @@
         });
 
         blueprint.competences = Array.from(usedComps).sort();
-        const finalStudentHTML = generateStudentTemplate(titre, devoirId, studentHtmlQuestions, blueprint.competences);
+        const finalStudentHTML = generateStudentTemplate(titre, devoirId, studentHtmlQuestions, blueprint.competences, blueprint);
 
         // EXPORT ÉCHELONNÉ POUR ÉVITER LES BLOCAGES
         
