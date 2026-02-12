@@ -415,7 +415,7 @@
                         competence: ctx.competence,
                         bareme: rowPoints[idx] ?? 0,
                         inputType: "texte_exact",
-                        autocorrect: true,
+                        autocorrect: false,
                         questionText: `${ctx.enoncePlain} — ${lineLabel}`,
                         reponseCorrecte: [],
                         reponseAttendue: explanation
@@ -533,6 +533,23 @@
 
     function getCountedQuestionBlocks() {
         return Array.from(document.querySelectorAll('.question-block')).filter((block) => countsAsQuestionType(block.dataset.type));
+    }
+
+    function renderWidgetButtons() {
+        const panel = document.querySelector('.tools-panel');
+        if (!panel) return;
+        const defs = window.MasterWidgets.all();
+        Object.keys(defs).forEach((type) => {
+            const def = defs[type];
+            if (!def || !def.toolbarLabel) return;
+            if (panel.querySelector(`[data-widget-type="${type}"]`)) return;
+            const btn = document.createElement('button');
+            btn.className = `btn-tool ${def.toolbarClass || ''}`.trim();
+            btn.setAttribute('data-widget-type', type);
+            btn.textContent = def.toolbarLabel;
+            btn.onclick = () => addBlock(type);
+            panel.insertBefore(btn, panel.firstChild);
+        });
     }
 
     function isEncType(type) {
@@ -808,6 +825,18 @@
             if (enonceField && !enonceField.value.trim()) {
                 enonceField.value = "Note";
                 autoResize(enonceField);
+            }
+        }
+        else if (isWidgetType(type) && typeof getWidgetDef(type).renderEditor === "function") {
+            try {
+                getWidgetDef(type).renderEditor({
+                    type,
+                    content,
+                    block: content.closest('.question-block'),
+                    helpers: { createStableQid, autoResize, setEncRowEnabled, getEncRows }
+                });
+            } catch (err) {
+                content.innerHTML = `<div class="config-zone">Erreur widget: ${String(err.message || err)}</div>`;
             }
         }
         else if (type === 'DOC') {
@@ -1415,7 +1444,7 @@ ${embeddedBlueprintScript}
             const qidBase = block.dataset.qid;
             const competence = block.querySelector('.q-comp').value;
             const bareme = parseFloat(block.querySelector('.q-points').value) || 1;
-            usedComps.add(competence);
+            if (!isVisualWidgetType(type)) usedComps.add(competence);
 
             // Template selon type
             if (type === 'QCU') {
@@ -1794,6 +1823,13 @@ ${embeddedBlueprintScript}
 
         singles.forEach(({ item, idx }) => {
             const inType = (item.inputType || "").toLowerCase();
+            if (typeof item.autocorrect === "undefined") {
+                if (inType === "select" || inType === "vrai_faux" || inType === "number") {
+                    item.autocorrect = true;
+                } else {
+                    item.autocorrect = false;
+                }
+            }
             let type = "SHORT";
 
             if (inType === "checkbox" || inType === "select") type = "QCU";
@@ -1989,7 +2025,7 @@ ${embeddedBlueprintScript}
             const enonce = enoncePlain.replace(/\n/g, '<br>');
             const bareme = parseFloat(block.querySelector('.q-points').value) || 1;
             const competence = block.querySelector('.q-comp').value;
-            usedComps.add(competence);
+            if (!isVisualWidgetType(type)) usedComps.add(competence);
             const widgetDef = getWidgetDef(type);
 
             if (widgetDef) {
@@ -2099,6 +2135,7 @@ ${embeddedBlueprintScript}
                 const rawVal = block.querySelector('.valid-answers').value;
                 const accepted = rawVal.split(';').map(s => s.trim()).filter(s => s);
                 const isNum = type === 'NUMBER';
+                const shouldAutocorrect = isNum;
 
                 blueprint.content.push({
                     type: "question",
@@ -2107,7 +2144,7 @@ ${embeddedBlueprintScript}
                     competence: competence,
                     bareme: bareme,
                     inputType: isNum ? "number" : "texte_exact",
-                    autocorrect: true,
+                    autocorrect: shouldAutocorrect,
                     questionText: enoncePlain,
                     reponseCorrecte: isNum ? parseFloat(accepted[0]) : accepted,
                     reponseAttendue: accepted.join(" OU "),
@@ -2150,7 +2187,7 @@ ${embeddedBlueprintScript}
                         competence: competence,
                         bareme: pointsPerRow[idx] ?? 0,
                         inputType: "texte_exact",
-                        autocorrect: true,
+                        autocorrect: false,
                         questionText: `${enoncePlain} — ${lineLabel}`,
                         reponseCorrecte: [],
                         reponseAttendue: explanation
@@ -2174,6 +2211,7 @@ ${embeddedBlueprintScript}
         });
 
         blueprint.competences = Array.from(usedComps).sort();
+        blueprint.autocorrect = true;
         blueprint.questions = blueprint.content;
         blueprint.items = blueprint.content;
 
@@ -2191,6 +2229,14 @@ ${embeddedBlueprintScript}
 
     // Initialisation au chargement
     document.addEventListener('DOMContentLoaded', function() {
+        try {
+            if (window.MasterWidgets && typeof window.MasterWidgets.init === "function") {
+                window.MasterWidgets.init();
+            }
+        } catch (err) {
+            console.warn("MasterWidgets init error:", err);
+        }
+        renderWidgetButtons();
         updateStats();
     });
 </script>
