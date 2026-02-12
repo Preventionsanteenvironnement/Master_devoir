@@ -308,7 +308,6 @@
     }
     .question-block { animation: slideIn 0.3s ease-out; }
 </style>
-<script src="master-widgets.js" defer></script>
 </head>
 <body>
 
@@ -356,12 +355,17 @@
     <button class="btn-tool btn-vf" onclick="addBlock('VF')">✅ Vrai/Faux</button>
     <button class="btn-tool btn-text" onclick="addBlock('NUMBER')">🔢 Nombre</button>
     <button class="btn-tool btn-text" onclick="addBlock('SHORT')">✍️ Texte</button>
+    <button class="btn-tool btn-text" onclick="addBlock('SELECT')">📋 Liste déroulante</button>
     <button class="btn-tool btn-text" onclick="addBlock('SEPARATOR')">➖ Séparateur</button>
     <button class="btn-tool btn-text" onclick="addBlock('TITLE')">🔤 Titre</button>
     <button class="btn-tool btn-text" onclick="addBlock('BOX_NOTE')">🗒️ Note</button>
-    <button class="btn-tool btn-text" onclick="addBlock('ENC_KQQOQCP')">🧩 Encadré 6W</button>
-    <button class="btn-tool btn-text" onclick="addBlock('ENC_PAD')">⚠️ Encadré PAD</button>
-    <button class="btn-tool btn-text" onclick="addBlock('ENC_ITAMAMI')">🧰 Encadré ITAMaMi</button>
+    <button class="btn-tool btn-text" onclick="addBlock('BOX_6W')">🧩 Box 6W</button>
+    <button class="btn-tool btn-text" onclick="addBlock('BOX_PAD')">⚠️ Box PAD</button>
+    <button class="btn-tool btn-text" onclick="addBlock('BOX_ITAMAMI')">🧰 Box ITAMaMi</button>
+    <button class="btn-tool btn-text" onclick="addBlock('IMAGE')">🖼️ Image seule</button>
+    <button class="btn-tool btn-text" onclick="addBlock('ENC_KQQOQCP')">🧩 Encadré 6W (Q)</button>
+    <button class="btn-tool btn-text" onclick="addBlock('ENC_PAD')">⚠️ Encadré PAD (Q)</button>
+    <button class="btn-tool btn-text" onclick="addBlock('ENC_ITAMAMI')">🧰 Encadré ITAMaMi (Q)</button>
     <span style="width:1px;background:rgba(255,255,255,0.2);margin:0 8px;"></span>
     <button class="btn-tool btn-doc" onclick="addBlock('DOC')">📄 Doc</button>
     <span style="width:1px;background:rgba(255,255,255,0.2);margin:0 8px;"></span>
@@ -393,6 +397,29 @@
         };
     })();
 
+    function normalizeImagePath(rawPath) {
+        const p = String(rawPath || "").trim();
+        if (!p) return "";
+        if (/^(https?:)?\/\//i.test(p) || p.startsWith("/") || p.startsWith("./") || p.startsWith("../")) return p;
+        if (p.includes("/")) return p;
+        return "images/" + p;
+    }
+
+    function updateImagePreview(input) {
+        const wrap = input.closest(".image-widget-editor");
+        if (!wrap) return;
+        const img = wrap.querySelector(".image-preview");
+        if (!img) return;
+        const src = normalizeImagePath(input.value);
+        if (!src) {
+            img.style.display = "none";
+            img.removeAttribute("src");
+            return;
+        }
+        img.src = src;
+        img.style.display = "block";
+    }
+
     function createEncWidgetDef(title, lines) {
         return {
             kind: "enc",
@@ -416,6 +443,7 @@
                         bareme: rowPoints[idx] ?? 0,
                         inputType: "texte_exact",
                         autocorrect: false,
+                        besoinCorrectionManuelle: true,
                         questionText: `${ctx.enoncePlain} — ${lineLabel}`,
                         reponseCorrecte: [],
                         reponseAttendue: explanation
@@ -473,6 +501,61 @@
         };
     }
 
+    function createBoxWidgetDef(title, lines) {
+        return {
+            kind: "visual",
+            countAsQuestion: false,
+            title,
+            lines,
+            renderEditor(ctx) {
+                const rowsHtml = lines.map((lineLabel) => `
+                    <tr class="enc-row" data-label="${lineLabel}" data-subqid="${createStableQid()}" data-enabled="1">
+                        <td class="enc-label-cell">${lineLabel}</td>
+                        <td class="enc-answer-cell">
+                            <textarea class="enc-expected auto-grow" rows="2" oninput="autoResize(this)" placeholder="Aide / guide..."></textarea>
+                        </td>
+                        <td style="width:56px; text-align:center;">
+                            <button class="enc-toggle-btn" type="button" onclick="toggleEncRow(this)" title="Masquer cette ligne">×</button>
+                        </td>
+                    </tr>
+                `).join("");
+                ctx.content.innerHTML = `
+                    <div class="config-zone" style="background:linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%); border-color:#93c5fd;">
+                        <span class="config-label">${title} (widget visuel non export blueprint)</span>
+                        <table class="enc-table" aria-label="${title}">
+                            <thead>
+                                <tr><th>Rubrique</th><th>Contenu</th><th>Actif</th></tr>
+                            </thead>
+                            <tbody>${rowsHtml}</tbody>
+                        </table>
+                    </div>
+                `;
+                const enonceField = ctx.block ? ctx.block.querySelector(".q-enonce") : null;
+                if (enonceField && !enonceField.value.trim()) {
+                    enonceField.value = title;
+                    autoResize(enonceField);
+                }
+            },
+            exportToBlueprint() { return []; },
+            exportToStudentHTML(block, ctx) {
+                const rows = getActiveEncRows(block);
+                if (!rows.length) return "";
+                const rowsHtml = rows.map((row) => {
+                    const label = row.dataset.label || "";
+                    const text = row.querySelector(".enc-expected")?.value || "";
+                    return `<tr><td>${label}</td><td>${text.replace(/\n/g, "<br>")}</td></tr>`;
+                }).join("");
+                return `
+                    <div class="document-box" style="background:#eff6ff; border-color:#93c5fd;">
+                        <h4>${ctx.enoncePlain || title}</h4>
+                        <div class="table-wrapper"><table class="eval-table"><tbody>${rowsHtml}</tbody></table></div>
+                    </div>
+                `;
+            },
+            importFromBlueprint() { return null; }
+        };
+    }
+
     window.MasterWidgets.register("SEPARATOR", {
         kind: "visual",
         countAsQuestion: false,
@@ -500,6 +583,36 @@
             const title = block.querySelector('.q-enonce')?.value || "Note";
             const content = (block.querySelector('.box-note-content')?.value || "").replace(/\n/g, "<br>");
             return `<div class="document-box" style="background:#fff7ed;border-color:#fdba74;"><h4>${title}</h4><p>${content}</p></div>`;
+        },
+        importFromBlueprint() { return null; }
+    });
+    window.MasterWidgets.register("BOX_6W", createBoxWidgetDef("QQOQCP", ["Quoi ?", "Qui ?", "Où ?", "Quand ?", "Comment ?", "Pourquoi ?"]));
+    window.MasterWidgets.register("BOX_PAD", createBoxWidgetDef("Processus d’apparition du dommage", ["Opérateur", "Danger", "Situation dangereuse", "Événement déclencheur", "Dommage"]));
+    window.MasterWidgets.register("BOX_ITAMAMI", createBoxWidgetDef("ITAMaMi", ["Individu", "Tâche", "Activité", "Matériel", "Milieu"]));
+    window.MasterWidgets.register("IMAGE", {
+        kind: "visual",
+        countAsQuestion: false,
+        renderEditor(ctx) {
+            ctx.content.innerHTML = `
+                <div class="config-zone image-widget-editor" style="background:#f8fafc; border-color:#cbd5e1;">
+                    <span class="config-label">Image seule (non export blueprint)</span>
+                    <input type="text" class="image-path-input" placeholder="ex: schema1.png ou images/schema1.png" oninput="updateImagePreview(this)" style="width:100%; margin-bottom:8px;">
+                    <img class="image-preview" alt="Aperçu image" style="display:none; max-width:100%; border:1px solid #cbd5e1; border-radius:8px;">
+                </div>
+            `;
+            const enonceField = ctx.block ? ctx.block.querySelector(".q-enonce") : null;
+            if (enonceField && !enonceField.value.trim()) {
+                enonceField.value = "Illustration";
+                autoResize(enonceField);
+            }
+        },
+        exportToBlueprint() { return []; },
+        exportToStudentHTML(block, ctx) {
+            const raw = block.querySelector(".image-path-input")?.value || "";
+            const src = normalizeImagePath(raw);
+            if (!src) return "";
+            const title = ctx.enoncePlain || "Illustration";
+            return `<div class="document-box"><h4>${title}</h4><img src="${src}" alt="${title}" style="max-width:100%; height:auto; border-radius:8px;"></div>`;
         },
         importFromBlueprint() { return null; }
     });
@@ -533,6 +646,16 @@
 
     function getCountedQuestionBlocks() {
         return Array.from(document.querySelectorAll('.question-block')).filter((block) => countsAsQuestionType(block.dataset.type));
+    }
+
+    function isNonExportWidgetType(type) {
+        return ["SEPARATOR", "TITLE", "BOX_NOTE", "BOX_6W", "BOX_PAD", "BOX_ITAMAMI", "IMAGE"].includes(type);
+    }
+
+    function renderWidgetBlock(type, block, ctx) {
+        const def = getWidgetDef(type);
+        if (!def || typeof def.exportToStudentHTML !== "function") return "";
+        return def.exportToStudentHTML(block, ctx) || "";
     }
 
     function renderWidgetButtons() {
@@ -724,11 +847,11 @@
         const content = createBlockSkeleton(type, insertAfterElem);
         const uid = Date.now();
 
-        if (type === 'QCU') {
+        if (type === 'QCU' || type === 'SELECT') {
             const containerId = `opts_${uid}`;
             content.innerHTML = `
                 <div class="config-zone">
-                    <span class="config-label">📝 Options (Cochez la bonne réponse)</span>
+                    <span class="config-label">📝 Options (${type === "SELECT" ? "Liste déroulante : cochez la bonne réponse" : "Cochez la bonne réponse"})</span>
                     <div id="${containerId}"></div>
                     <button onclick="addOption('${containerId}')" style="margin-top:10px;font-size:0.85em;cursor:pointer;background:linear-gradient(135deg, #e9ecef, #dee2e6);border:none;padding:6px 12px;border-radius:6px;font-weight:bold;color:#495057;transition:all 0.2s;">+ Ajouter une option</button>
                 </div>
@@ -845,7 +968,7 @@
             `;
         }
         
-        if (type !== 'DOC' && type !== 'SEPARATOR' && type !== 'TITLE' && type !== 'BOX_NOTE') {
+        if (type !== 'DOC' && !isNonExportWidgetType(type)) {
             content.innerHTML += `
                 <div style="margin-top:15px;">
                     <textarea class="q-explain auto-grow" rows="1" oninput="autoResize(this)" placeholder="💡 Explication pour la correction..." style="font-size:0.9em;color:#64748b;background:#f8fafc;border:2px dashed #cbd5e0;width:100%;border-radius:6px;padding:10px;"></textarea>
@@ -916,7 +1039,7 @@
             competences.add(comp);
             
             // Vérifications spécifiques par type
-            if (type === 'QCU') {
+            if (type === 'QCU' || type === 'SELECT') {
                 const options = q.querySelectorAll('.opt-text');
                 const checked = q.querySelectorAll('.correct-check:checked');
                 
@@ -927,7 +1050,7 @@
                 
                 if (validOptions < 2) warnings.push(`⚠️ Question ${num} : moins de 2 options valides`);
                 if (checked.length === 0) issues.push(`❌ Question ${num} : aucune bonne réponse cochée`);
-                if (checked.length > 1) issues.push(`❌ Question ${num} : QCU avec plusieurs bonnes réponses`);
+                if (checked.length > 1) issues.push(`❌ Question ${num} : ${type} avec plusieurs bonnes réponses`);
             }
             
             if (type === 'SHORT' || type === 'NUMBER') {
@@ -1447,7 +1570,7 @@ ${embeddedBlueprintScript}
             if (!isVisualWidgetType(type)) usedComps.add(competence);
 
             // Template selon type
-            if (type === 'QCU') {
+            if (type === 'QCU' || type === 'SELECT') {
                 const optCount = block.querySelectorAll('.option-row').length || 4;
                 const emptyOptions = Array.from({length: optCount}, (_, i) => ({
                     value: `${qidBase}_opt${i+1}`,
@@ -1561,7 +1684,7 @@ ${embeddedBlueprintScript}
             item.points = parseFloat(block.querySelector('.q-points')?.value) || 0;
             item.explanation = block.querySelector('.q-explain')?.value || "";
 
-            if (type === 'QCU') {
+            if (type === 'QCU' || type === 'SELECT') {
                 item.options = [];
                 block.querySelectorAll('.option-row').forEach((row) => {
                     item.options.push({
@@ -1575,6 +1698,15 @@ ${embeddedBlueprintScript}
                 item.validAnswers = block.querySelector('.valid-answers')?.value || "";
             } else if (type === 'BOX_NOTE') {
                 item.noteContent = block.querySelector('.box-note-content')?.value || "";
+            } else if (type === 'IMAGE') {
+                item.imagePath = block.querySelector('.image-path-input')?.value || "";
+            } else if (type === 'BOX_6W' || type === 'BOX_PAD' || type === 'BOX_ITAMAMI') {
+                item.lignes = getEncRows(block).map((row) => ({
+                    label: row.dataset.label || "",
+                    subqid: row.dataset.subqid || createStableQid(),
+                    enabled: row.dataset.enabled !== "0",
+                    preview: row.querySelector('.enc-expected')?.value || ""
+                }));
             } else if (type === 'SEPARATOR' || type === 'TITLE') {
                 // Pas de données supplémentaires
             } else if (isEncType(type)) {
@@ -1643,7 +1775,7 @@ ${embeddedBlueprintScript}
             safeSetValue(block.querySelector('.q-points'), q.points ?? 0);
             safeSetValue(block.querySelector('.q-explain'), q.explanation || "");
 
-            if (type === 'QCU') {
+            if (type === 'QCU' || type === 'SELECT') {
                 const container = block.querySelector('div[id^="opts_"]');
                 if (container) {
                     container.innerHTML = '';
@@ -1668,6 +1800,25 @@ ${embeddedBlueprintScript}
                 safeSetValue(block.querySelector('.valid-answers'), q.validAnswers || "");
             } else if (type === 'BOX_NOTE') {
                 safeSetValue(block.querySelector('.box-note-content'), q.noteContent || "");
+            } else if (type === 'IMAGE') {
+                const input = block.querySelector('.image-path-input');
+                safeSetValue(input, q.imagePath || "");
+                if (input) updateImagePreview(input);
+            } else if (type === 'BOX_6W' || type === 'BOX_PAD' || type === 'BOX_ITAMAMI') {
+                const rows = getEncRows(block);
+                const savedRows = Array.isArray(q.lignes) ? q.lignes : [];
+                if (savedRows.length === 0) {
+                    rows.forEach((row) => setEncRowEnabled(row, true));
+                } else {
+                    rows.forEach((row) => setEncRowEnabled(row, false));
+                    savedRows.forEach((line) => {
+                        const row = rows.find((r) => normalizeEncLabel(r.dataset.label) === normalizeEncLabel(line.label));
+                        if (!row) return;
+                        row.dataset.subqid = line.subqid || row.dataset.subqid || createStableQid();
+                        setEncRowEnabled(row, line.enabled !== false);
+                        safeSetValue(row.querySelector('.enc-expected'), line.preview || "");
+                    });
+                }
             } else if (type === 'SEPARATOR' || type === 'TITLE') {
                 // Rien de spécifique
             } else if (isEncType(type)) {
@@ -1716,7 +1867,7 @@ ${embeddedBlueprintScript}
                     }
 
                     // Draft master (sauvegarde JSON)
-                    const isDraftJSON = Array.isArray(data.questions) && (!Array.isArray(data.content) || (data.meta && data.meta.version === "master-quiz-auto"));
+                    const isDraftJSON = Array.isArray(data.questions) && data.meta && data.meta.version === "master-quiz-auto";
                     if (isDraftJSON) {
                         restoreDraftJSON(data);
                         showNotification("✅ Draft importé avec succès", "success");
@@ -2028,6 +2179,12 @@ ${embeddedBlueprintScript}
             if (!isVisualWidgetType(type)) usedComps.add(competence);
             const widgetDef = getWidgetDef(type);
 
+            if (isNonExportWidgetType(type)) {
+                const visualHtml = renderWidgetBlock(type, block, { qCounter, qidBase, enoncePlain, enonceHtml: enonce, bareme, competence });
+                if (visualHtml) studentHtmlQuestions += visualHtml;
+                return;
+            }
+
             if (widgetDef) {
                 const ctx = { qCounter, qidBase, enoncePlain, enonceHtml: enonce, bareme, competence };
                 let widgetItems = [];
@@ -2052,7 +2209,7 @@ ${embeddedBlueprintScript}
                 return;
             }
 
-            if (type === 'QCU') {
+            if (type === 'QCU' || type === 'SELECT') {
                 let options = [];
                 let correctVal = null;
                 let correctText = "";
@@ -2091,17 +2248,27 @@ ${embeddedBlueprintScript}
                     options: options
                 });
 
-                // HTML Élève (inchangé)
-                studentHtmlQuestions += `
-                    <div class="question-block">
-                        <span class="q-label">${qCounter}</span><span class="q-comp">${competence}</span><span class="q-points">${bareme} pts</span>
-                        <div class="q-text">${enonce}</div>
-                        <div class="checkbox-group">
-                `;
-                options.forEach(opt => {
-                    studentHtmlQuestions += `<label><input type="radio" name="${qidBase}" value="${opt.value}" class="reponse-eleve" data-qid="${qidBase}"> ${opt.label}</label>`;
-                });
-                studentHtmlQuestions += `</div></div>`;
+                if (type === "SELECT") {
+                    const optsHtml = `<option value="">-- Sélectionner --</option>` + options.map((opt) => `<option value="${opt.value}">${opt.label}</option>`).join("");
+                    studentHtmlQuestions += `
+                        <div class="question-block">
+                            <span class="q-label">${qCounter}</span><span class="q-comp">${competence}</span><span class="q-points">${bareme} pts</span>
+                            <div class="q-text">${enonce}</div>
+                            <div><select class="reponse-eleve answer-select" data-qid="${qidBase}">${optsHtml}</select></div>
+                        </div>
+                    `;
+                } else {
+                    studentHtmlQuestions += `
+                        <div class="question-block">
+                            <span class="q-label">${qCounter}</span><span class="q-comp">${competence}</span><span class="q-points">${bareme} pts</span>
+                            <div class="q-text">${enonce}</div>
+                            <div class="checkbox-group">
+                    `;
+                    options.forEach(opt => {
+                        studentHtmlQuestions += `<label><input type="radio" name="${qidBase}" value="${opt.value}" class="reponse-eleve" data-qid="${qidBase}"> ${opt.label}</label>`;
+                    });
+                    studentHtmlQuestions += `</div></div>`;
+                }
                 qCounter++;
             }
             else if (type === 'VF') {
@@ -2145,6 +2312,7 @@ ${embeddedBlueprintScript}
                     bareme: bareme,
                     inputType: isNum ? "number" : "texte_exact",
                     autocorrect: shouldAutocorrect,
+                    besoinCorrectionManuelle: shouldAutocorrect ? undefined : true,
                     questionText: enoncePlain,
                     reponseCorrecte: isNum ? parseFloat(accepted[0]) : accepted,
                     reponseAttendue: accepted.join(" OU "),
@@ -2188,6 +2356,7 @@ ${embeddedBlueprintScript}
                         bareme: pointsPerRow[idx] ?? 0,
                         inputType: "texte_exact",
                         autocorrect: false,
+                        besoinCorrectionManuelle: true,
                         questionText: `${enoncePlain} — ${lineLabel}`,
                         reponseCorrecte: [],
                         reponseAttendue: explanation
