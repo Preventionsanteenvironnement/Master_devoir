@@ -131,12 +131,12 @@
         display: block; margin-bottom: 10px; 
     }
     
-    .option-row, .pair-row { 
+    .option-row { 
         display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; 
         padding: 8px; background: rgba(255,255,255,0.7); border-radius: 6px;
         transition: all 0.2s ease;
     }
-    .option-row:hover, .pair-row:hover { 
+    .option-row:hover { 
         background: rgba(255,255,255,0.9); 
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
@@ -311,12 +311,9 @@
 
 <div class="tools-panel">
     <button class="btn-tool btn-qcm" onclick="addBlock('QCU')">🔘 QCU</button>
-    <button class="btn-tool btn-qcm" onclick="addBlock('QCM')">☑️ QCM</button>
     <button class="btn-tool btn-vf" onclick="addBlock('VF')">✅ Vrai/Faux</button>
     <button class="btn-tool btn-text" onclick="addBlock('NUMBER')">🔢 Nombre</button>
     <button class="btn-tool btn-text" onclick="addBlock('SHORT')">✍️ Texte</button>
-    <button class="btn-tool btn-text" onclick="addBlock('CLOZE')">🕳️ Texte à trous</button>
-    <button class="btn-tool btn-match" onclick="addBlock('MATCH')">🔗 Relier</button>
     <span style="width:1px;background:rgba(255,255,255,0.2);margin:0 8px;"></span>
     <button class="btn-tool btn-doc" onclick="addBlock('DOC')">📄 Doc</button>
     <span style="width:1px;background:rgba(255,255,255,0.2);margin:0 8px;"></span>
@@ -398,7 +395,7 @@
                     <textarea class="q-enonce auto-grow" rows="1" placeholder="Énoncé de la question..." oninput="autoResize(this)"></textarea>
                     <div class="q-controls">
                         <select class="q-comp" style="width:80px; font-weight:bold;" onchange="updateStats()">
-                            <option value="C1">C1</option><option value="C2">C2</option><option value="C3">C3</option><option value="C4">C4</option>
+                            <option value="C1">C1</option><option value="C2">C2</option><option value="C3">C3</option><option value="C4">C4</option><option value="C5">C5</option><option value="C6">C6</option>
                         </select>
                         <input type="number" class="q-points" value="1" step="0.5" style="width:60px; text-align:center; font-weight:bold;" title="Points" onchange="updateStats()">
                         <button class="delete-btn" onclick="removeBlock(this)">✕</button>
@@ -436,17 +433,17 @@
         const content = createBlockSkeleton(type, insertAfterElem);
         const uid = Date.now();
 
-        if (type === 'QCU' || type === 'QCM') {
+        if (type === 'QCU') {
             const containerId = `opts_${uid}`;
             content.innerHTML = `
                 <div class="config-zone">
-                    <span class="config-label">📝 Options (${type === 'QCU' ? 'Cochez la bonne réponse' : 'Cochez la/les bonne(s) réponse(s)'})</span>
+                    <span class="config-label">📝 Options (Cochez la bonne réponse)</span>
                     <div id="${containerId}"></div>
-                    <button onclick="addOption('${containerId}', '${type}')" style="margin-top:10px;font-size:0.85em;cursor:pointer;background:linear-gradient(135deg, #e9ecef, #dee2e6);border:none;padding:6px 12px;border-radius:6px;font-weight:bold;color:#495057;transition:all 0.2s;">+ Ajouter une option</button>
+                    <button onclick="addOption('${containerId}')" style="margin-top:10px;font-size:0.85em;cursor:pointer;background:linear-gradient(135deg, #e9ecef, #dee2e6);border:none;padding:6px 12px;border-radius:6px;font-weight:bold;color:#495057;transition:all 0.2s;">+ Ajouter une option</button>
                 </div>
             `;
-            addOption(containerId, type);
-            addOption(containerId, type);
+            addOption(containerId);
+            addOption(containerId);
         } 
         else if (type === 'VF') {
             content.innerHTML = `
@@ -465,31 +462,6 @@
                 </div>
             `;
         }
-        else if (type === 'MATCH') {
-            const containerId = `match_${uid}`;
-            content.innerHTML = `
-                <div class="config-zone">
-                    <span class="config-label">🔗 Paires correctes (Gauche ⮕ Droite)</span>
-                    <div id="${containerId}"></div>
-                    <button onclick="addPair('${containerId}')" style="margin-top:10px;font-size:0.85em;cursor:pointer;background:linear-gradient(135deg, #e9ecef, #dee2e6);border:none;padding:6px 12px;border-radius:6px;font-weight:bold;color:#495057;transition:all 0.2s;">+ Ajouter une paire</button>
-                </div>
-            `;
-            addPair(containerId);
-            addPair(containerId);
-        }
-        else if (type === 'CLOZE') {
-            content.innerHTML = `
-                <div class="config-zone">
-                    <span class="config-label">🕳️ Texte à trous (réponses entre [crochets])</span>
-                    <textarea class="cloze-text auto-grow" style="min-height:100px; width:100%; font-family:monospace;" placeholder="L'unité de l'intensité est l'[Ampère] ([A])." oninput="autoResize(this)"></textarea>
-                    <div style="margin-top:8px; background:white; padding:5px; border-radius:4px;">
-                        <label style="cursor:pointer; font-size:0.9em;">
-                            <input type="checkbox" class="cloze-mode"> <strong>Mode Liste Déroulante</strong>
-                        </label>
-                    </div>
-                </div>
-            `;
-        }
         else if (type === 'DOC') {
             content.innerHTML = `
                 <textarea class="doc-content auto-grow" style="min-height:100px; width:100%;" placeholder="Contenu du document..." oninput="autoResize(this)"></textarea>
@@ -505,26 +477,14 @@
         }
     }
 
-    function addOption(containerId, type) {
+    function addOption(containerId) {
         const div = document.createElement('div');
         div.className = 'option-row';
-        const inputType = type === 'QCU' ? 'radio' : 'checkbox';
-        const nameGroup = type === 'QCU' ? `grp_${containerId}` : ''; 
+        const inputType = 'radio';
+        const nameGroup = `grp_${containerId}`;
         div.innerHTML = `
             <input type="${inputType}" name="${nameGroup}" class="correct-check" title="Est-ce la bonne réponse ?">
             <textarea class="opt-text auto-grow" rows="1" oninput="autoResize(this)" placeholder="Réponse possible..."></textarea>
-            <button onclick="this.parentElement.remove()" style="color:#e74c3c;border:none;background:none;cursor:pointer;font-weight:bold;margin-top:10px;font-size:1.2em;transition:all 0.2s;" onmouseover="this.style.color='#dc2626'; this.style.transform='scale(1.2)'" onmouseout="this.style.color='#e74c3c'; this.style.transform='scale(1)'">×</button>
-        `;
-        document.getElementById(containerId).appendChild(div);
-    }
-
-    function addPair(containerId) {
-        const div = document.createElement('div');
-        div.className = 'pair-row';
-        div.innerHTML = `
-            <textarea class="pair-left auto-grow" rows="1" oninput="autoResize(this)" placeholder="Élément A"></textarea>
-            <span style="margin-top:10px; color:#64748b; font-weight:bold;">⮕</span>
-            <textarea class="pair-right auto-grow" rows="1" oninput="autoResize(this)" placeholder="Correspondance A"></textarea>
             <button onclick="this.parentElement.remove()" style="color:#e74c3c;border:none;background:none;cursor:pointer;font-weight:bold;margin-top:10px;font-size:1.2em;transition:all 0.2s;" onmouseover="this.style.color='#dc2626'; this.style.transform='scale(1.2)'" onmouseout="this.style.color='#e74c3c'; this.style.transform='scale(1)'">×</button>
         `;
         document.getElementById(containerId).appendChild(div);
@@ -579,7 +539,7 @@
             competences.add(comp);
             
             // Vérifications spécifiques par type
-            if (type === 'QCU' || type === 'QCM') {
+            if (type === 'QCU') {
                 const options = q.querySelectorAll('.opt-text');
                 const checked = q.querySelectorAll('.correct-check:checked');
                 
@@ -590,7 +550,7 @@
                 
                 if (validOptions < 2) warnings.push(`⚠️ Question ${num} : moins de 2 options valides`);
                 if (checked.length === 0) issues.push(`❌ Question ${num} : aucune bonne réponse cochée`);
-                if (type === 'QCU' && checked.length > 1) issues.push(`❌ Question ${num} : QCU avec plusieurs bonnes réponses`);
+                if (checked.length > 1) issues.push(`❌ Question ${num} : QCU avec plusieurs bonnes réponses`);
             }
             
             if (type === 'SHORT' || type === 'NUMBER') {
@@ -598,16 +558,6 @@
                 if (!reponse) issues.push(`❌ Question ${num} : réponse attendue manquante`);
             }
             
-            if (type === 'MATCH') {
-                const pairs = q.querySelectorAll('.pair-row');
-                let validPairs = 0;
-                pairs.forEach(pair => {
-                    const left = pair.querySelector('.pair-left').value.trim();
-                    const right = pair.querySelector('.pair-right').value.trim();
-                    if (left && right) validPairs++;
-                });
-                if (validPairs < 2) warnings.push(`⚠️ Question ${num} : moins de 2 paires valides pour relier`);
-            }
         });
         
         // Statistiques globales
@@ -905,6 +855,11 @@
 </div>
 
 <script>
+    const focus = { focusLeaves: 0, copyAttempts: 0 };
+    function getAntiCheatOptions() {
+        return (window.__PSE_BLUEPRINT && window.__PSE_BLUEPRINT.options) || { antiLeave: true, antiPaste: true, maxLeaves: 2 };
+    }
+
     // Auto-resize pour les zones de texte
     function autoResize(el) {
         el.style.height = 'auto';
@@ -922,6 +877,32 @@
         });
     });
 
+    document.addEventListener('visibilitychange', () => {
+        const antiCheatOptions = getAntiCheatOptions();
+        if (antiCheatOptions.antiLeave !== false && document.visibilityState === 'hidden') {
+            focus.focusLeaves += 1;
+        }
+    });
+
+    window.addEventListener('blur', () => {
+        const antiCheatOptions = getAntiCheatOptions();
+        if (antiCheatOptions.antiLeave !== false) {
+            focus.focusLeaves += 1;
+        }
+    });
+
+    document.addEventListener('copy', () => {
+        focus.copyAttempts += 1;
+    });
+
+    document.addEventListener('paste', (event) => {
+        const antiCheatOptions = getAntiCheatOptions();
+        focus.copyAttempts += 1;
+        if (antiCheatOptions.antiPaste !== false) {
+            event.preventDefault();
+        }
+    });
+
     // Configuration Runner
     window.tenterEnvoi = async function() {
         const codeInput = document.getElementById('code-eleve');
@@ -936,8 +917,8 @@
             try {
                 const classeLS = (localStorage.getItem('userClasse') || '').trim();
                 const elevePayload = classeLS
-                    ? { code: code, classe: classeLS, blueprintEmbedded: true }
-                    : { code: code, blueprintEmbedded: true };
+                    ? { code: code, classe: classeLS, blueprintEmbedded: true, focus: focus }
+                    : { code: code, blueprintEmbedded: true, focus: focus };
                 await window.envoyerCopie(code, { external: 0 }, elevePayload);
                 btn.textContent = "✅ Envoyé !";
                 btn.style.background = "linear-gradient(135deg, #2ecc71, #27ae60)";
@@ -1053,14 +1034,10 @@ ${embeddedBlueprintScript}
                 ],
                 formats_reponses: {
                     QCU: "1 seule bonne réponse dans reponseCorrecte",
-                    QCM: "Tableau de bonnes réponses dans reponseCorrecte",
                     VF: "Justifier dans reponseAttendue pourquoi vrai ou faux + référence cours",
                     SHORT: "Accepter plusieurs formulations séparées par ; dans reponseCorrecte",
-                    NUMBER: "Valeur numérique exacte + explication calcul dans reponseAttendue",
-                    CLOZE: "Remplacer [MOT_TROU_X] par le mot exact attendu dans reponseCorrecte",
-                    MATCH: "Réponse exacte de la correspondance dans reponseCorrecte"
+                    NUMBER: "Valeur numérique exacte + explication calcul dans reponseAttendue"
                 },
-                exemple_cloze: "Si template contient 'Le sommeil comporte [X] phases principales', remplacer par 'Le sommeil comporte [4] phases principales' puis mettre reponseCorrecte: ['4']",
                 final: "SUPPRIMER ce champ instructions du JSON final"
             },
             id: devoirId,
@@ -1086,10 +1063,10 @@ ${embeddedBlueprintScript}
             usedComps.add(competence);
 
             // Template selon type
-            if (type === 'QCU' || type === 'QCM') {
+            if (type === 'QCU') {
                 const optCount = block.querySelectorAll('.option-row').length || 4;
                 const emptyOptions = Array.from({length: optCount}, (_, i) => ({
-                    value: `opt_${i}_${Date.now()}`,
+                    value: `${qidBase}_opt${i+1}`,
                     label: `[OPTION ${i+1} À REMPLIR]`
                 }));
 
@@ -1099,10 +1076,10 @@ ${embeddedBlueprintScript}
                     label: qCounter.toString(),
                     competence: competence,
                     bareme: bareme,
-                    inputType: type === 'QCU' ? 'select' : (type === 'QCM' ? 'checkbox' : 'vrai_faux'),
+                    inputType: "select",
                     autocorrect: true,
                     questionText: "[ÉNONCÉ À REMPLIR]",
-                    reponseCorrecte: type === 'QCU' ? "[ID_OPTION_CORRECTE]" : ["[IDS_OPTIONS_CORRECTES]"],
+                    reponseCorrecte: "[ID_OPTION_CORRECTE]",
                     reponseAttendue: "[EXPLICATION DÉTAILLÉE À RÉDIGER]",
                     explication: "[EXPLICATION DÉTAILLÉE À RÉDIGER]",
                     options: emptyOptions
@@ -1142,49 +1119,6 @@ ${embeddedBlueprintScript}
                 });
                 qCounter++;
             }
-            else if (type === 'MATCH') {
-                const pairCount = block.querySelectorAll('.pair-row').length || 3;
-                for (let i = 0; i < pairCount; i++) {
-                    template.content.push({
-                        type: "question",
-                        qid: `${qidBase}_pair_${i}`,
-                        label: `${qCounter}${String.fromCharCode(97 + i)}`,
-                        competence: competence,
-                        bareme: Number((bareme / pairCount).toFixed(2)),
-                        inputType: "select",
-                        autocorrect: true,
-                        questionText: `Associer : [ÉLÉMENT_${i+1}]`,
-                        reponseCorrecte: `[CORRESPONDANCE_${i+1}]`,
-                        reponseAttendue: `[CORRESPONDANCE_${i+1}]`,
-                        explication: "[EXPLICATION DE LA CORRESPONDANCE]",
-                        options: [
-                            {value: "[CORRESPONDANCE_1]", label: "[CORRESPONDANCE_1]"},
-                            {value: "[CORRESPONDANCE_2]", label: "[CORRESPONDANCE_2]"},
-                            {value: "[CORRESPONDANCE_3]", label: "[CORRESPONDANCE_3]"}
-                        ]
-                    });
-                }
-                qCounter++;
-            }
-            else if (type === 'CLOZE') {
-                const holeCount = 3; // Exemple par défaut
-                for (let i = 0; i < holeCount; i++) {
-                    template.content.push({
-                        type: "question",
-                        qid: `${qidBase}_hole_${i}`,
-                        label: `${qCounter}.${i+1}`,
-                        competence: competence,
-                        bareme: Number((bareme / holeCount).toFixed(2)),
-                        inputType: "texte_exact",
-                        autocorrect: true,
-                        questionText: `Texte à trous (${i+1})`,
-                        reponseCorrecte: [`[MOT_TROU_${i+1}]`],
-                        reponseAttendue: "[EXPLICATION VOCABULAIRE/CONCEPT]",
-                        explication: "[EXPLICATION DÉTAILLÉE À RÉDIGER]"
-                    });
-                }
-                qCounter++;
-            }
         });
 
         template.competences = Array.from(usedComps).sort();
@@ -1218,7 +1152,7 @@ ${embeddedBlueprintScript}
             item.points = parseFloat(block.querySelector('.q-points')?.value) || 0;
             item.explanation = block.querySelector('.q-explain')?.value || "";
 
-            if (type === 'QCU' || type === 'QCM') {
+            if (type === 'QCU') {
                 item.options = [];
                 block.querySelectorAll('.option-row').forEach((row) => {
                     item.options.push({
@@ -1230,17 +1164,6 @@ ${embeddedBlueprintScript}
                 item.correct = block.querySelector('input[value="vrai"]')?.checked ? 'vrai' : 'faux';
             } else if (type === 'SHORT' || type === 'NUMBER') {
                 item.validAnswers = block.querySelector('.valid-answers')?.value || "";
-            } else if (type === 'MATCH') {
-                item.pairs = [];
-                block.querySelectorAll('.pair-row').forEach((row) => {
-                    item.pairs.push({
-                        left: row.querySelector('.pair-left')?.value || "",
-                        right: row.querySelector('.pair-right')?.value || ""
-                    });
-                });
-            } else if (type === 'CLOZE') {
-                item.clozeText = block.querySelector('.cloze-text')?.value || "";
-                item.clozeMode = !!block.querySelector('.cloze-mode')?.checked;
             }
 
             questions.push(item);
@@ -1299,13 +1222,13 @@ ${embeddedBlueprintScript}
             safeSetValue(block.querySelector('.q-points'), q.points ?? 0);
             safeSetValue(block.querySelector('.q-explain'), q.explanation || "");
 
-            if (type === 'QCU' || type === 'QCM') {
+            if (type === 'QCU') {
                 const container = block.querySelector('div[id^="opts_"]');
                 if (container) {
                     container.innerHTML = '';
                     const opts = Array.isArray(q.options) ? q.options : [];
                     (opts.length ? opts : [{ text: "", correct: false }, { text: "", correct: false }]).forEach((opt) => {
-                        addOption(container.id, type);
+                        addOption(container.id);
                         const rows = container.querySelectorAll('.option-row');
                         const row = rows[rows.length - 1];
                         safeSetValue(row.querySelector('.opt-text'), opt.text || "");
@@ -1322,30 +1245,12 @@ ${embeddedBlueprintScript}
                 if (fauxEl) fauxEl.checked = !isVrai;
             } else if (type === 'SHORT' || type === 'NUMBER') {
                 safeSetValue(block.querySelector('.valid-answers'), q.validAnswers || "");
-            } else if (type === 'MATCH') {
-                const container = block.querySelector('div[id^="match_"]');
-                if (container) {
-                    container.innerHTML = '';
-                    const pairs = Array.isArray(q.pairs) ? q.pairs : [];
-                    (pairs.length ? pairs : [{ left: "", right: "" }, { left: "", right: "" }]).forEach((pair) => {
-                        addPair(container.id);
-                        const rows = container.querySelectorAll('.pair-row');
-                        const row = rows[rows.length - 1];
-                        safeSetValue(row.querySelector('.pair-left'), pair.left || "");
-                        safeSetValue(row.querySelector('.pair-right'), pair.right || "");
-                    });
-                }
-            } else if (type === 'CLOZE') {
-                safeSetValue(block.querySelector('.cloze-text'), q.clozeText || "");
-                const modeEl = block.querySelector('.cloze-mode');
-                if (modeEl) modeEl.checked = !!q.clozeMode;
             }
         });
 
         renumberQuestions();
         updateStats();
         document.getElementById('empty-msg').style.display = document.querySelectorAll('.question-block').length ? 'none' : 'block';
-        showNotification(`✅ Draft chargé (${data.questions.length} blocs)`, 'success');
     }
 
 
@@ -1373,6 +1278,8 @@ ${embeddedBlueprintScript}
                     // Draft master (sauvegarde JSON)
                     const isDraftJSON = Array.isArray(data.questions) && (!Array.isArray(data.content) || (data.meta && data.meta.version === "master-quiz-auto"));
                     if (isDraftJSON) {
+                        restoreDraftJSON(data);
+                        showNotification("✅ Draft importé avec succès", "success");
                         return;
                     }
 
@@ -1411,230 +1318,81 @@ ${embeddedBlueprintScript}
 
     function reconstructFromJSON(data) {
         console.log("🔄 Début reconstruction BLINDÉE...", data);
-        
-        // ÉTAPE 1 : REGROUPER LES QUESTIONS ATOMISÉES (MATCH / CLOZE)
-        const groups = {};
-        
-        data.content.forEach(item => {
-            let baseId = item.qid || `gen_${Math.random()}`; // Sécurité si pas d'ID
-            if (baseId.includes('_pair_')) baseId = baseId.split('_pair_')[0];
-            if (baseId.includes('_hole_')) baseId = baseId.split('_hole_')[0];
-            
-            if (!groups[baseId]) groups[baseId] = { items: [] };
-            groups[baseId].items.push(item);
-        });
+        const items = Array.isArray(data.content) ? data.content : [];
+        items.forEach((item, idx) => {
+            const inType = (item.inputType || "").toLowerCase();
+            let type = "SHORT";
 
-        console.log("📊 Groupes créés:", Object.keys(groups).length);
+            if (inType === "checkbox" || inType === "select") type = "QCU";
+            else if (inType === "vrai_faux") type = "VF";
+            else if (inType === "number") type = "NUMBER";
+            else if (inType === "texte_exact") type = "SHORT";
 
-        // ÉTAPE 2 : GÉNÉRER LES BLOCS
-        Object.keys(groups).forEach(baseId => {
-            const group = groups[baseId];
-            const firstItem = group.items[0];
-            
-            console.log("🔨 Création bloc pour:", baseId, firstItem);
-            
-            // --- DÉTECTION TYPE ROBUSTE ---
-            let type = 'SHORT';
-            const inType = (firstItem.inputType || "").toLowerCase();
-            
-            if (inType.includes('qcm') || inType.includes('radio')) type = 'QCU';
-            else if (inType.includes('checkbox') || inType.includes('multiple')) type = 'QCM';
-            else if (inType.includes('vrai') || inType.includes('faux') || inType.includes('bool')) type = 'VF';
-            else if (inType.includes('number') || inType.includes('num')) type = 'NUMBER';
-            else if (inType.includes('select') || inType.includes('match') || inType.includes('relier')) type = 'MATCH';
-            else if (firstItem.qid && firstItem.qid.includes('hole')) type = 'CLOZE';
-
-            console.log("🏷️ Type détecté:", type);
-
-            // --- CRÉATION DU BLOC ---
-            const contentDiv = createBlockSkeleton(type, null); 
+            const contentDiv = createBlockSkeleton(type, null);
             const block = contentDiv.closest('.question-block');
-            
-            // --- CALCUL POINTS ---
-            let totalPoints = 0;
-            group.items.forEach(i => totalPoints += (parseFloat(i.bareme || i.points || 0)));
-            
-            // === REMPLISSAGE SÉCURISÉ BLOC ===
-            safeSetValue(block.querySelector('.q-comp'), firstItem.competence || firstItem.comp || "C1");
-            safeSetValue(block.querySelector('.q-points'), Math.round(totalPoints * 100) / 100);
+            const qid = item.qid || `imp_${Date.now()}_${idx}`;
+            block.dataset.qid = qid;
 
-            // --- ÉNONCÉ FLEXIBLE ---
-            let enonce = getFlexibleText(firstItem, ['questionText', 'question', 'text', 'enonce', 'titre']);
-            
-            if (type === 'MATCH') {
-                // Nettoyage pour questions Match
-                if (enonce.toLowerCase().includes('associer')) {
-                    enonce = "Associer les éléments suivants :";
-                }
-            }
-            
-            console.log("📝 Énoncé trouvé:", enonce);
-            safeSetValue(block.querySelector('.q-enonce'), enonce);
-            
-            // --- REMPLISSAGE SPÉCIFIQUE PAR TYPE ---
-            const uid = Date.now() + Math.floor(Math.random()*10000);
-            const containerId = `auto_${uid}`;
-            
-            // A. QCM / QCU
-            if (type === 'QCU' || type === 'QCM') {
-                console.log("🎯 Traitement QCM/QCU");
-                
+            safeSetValue(block.querySelector('.q-comp'), item.competence || item.comp || "C1");
+            safeSetValue(block.querySelector('.q-points'), parseFloat(item.bareme || item.points || 1) || 1);
+            safeSetValue(block.querySelector('.q-enonce'), getFlexibleText(item, ['questionText', 'question', 'text', 'enonce', 'titre']));
+
+            if (type === "QCU") {
+                const containerId = `auto_${Date.now()}_${idx}`;
                 contentDiv.innerHTML = `
                     <div class="config-zone">
                         <span class="config-label">📝 Options importées</span>
                         <div id="${containerId}"></div>
-                        <button onclick="addOption('${containerId}', '${type}')" style="margin-top:10px;font-size:0.85em;cursor:pointer;background:#eee;border:none;padding:5px 10px;border-radius:4px;">+ Ajouter option</button>
-                    </div>`;
-                
-                // Explication sécurisée
-                const explication = getFlexibleText(firstItem, ['reponseAttendue', 'explication', 'correction', 'justification']);
-                addExplanationSecure(contentDiv, explication);
+                        <button onclick="addOption('${containerId}')" style="margin-top:10px;font-size:0.85em;cursor:pointer;background:#eee;border:none;padding:5px 10px;border-radius:4px;">+ Ajouter option</button>
+                    </div>
+                `;
 
-                // Options flexibles
-                const opts = firstItem.options || firstItem.choices || firstItem.reponses || [];
-                console.log("📋 Options trouvées:", opts.length);
-                
-                opts.forEach((opt, idx) => {
-                    const row = document.createElement('div');
-                    row.className = 'option-row';
-                    
-                    // Valeur option flexible
-                    const optValue = opt.value || opt.id || `opt_${idx}`;
-                    const optLabel = getFlexibleText(opt, ['label', 'text', 'value', 'option']);
-                    
-                    // Vérification réponse correcte FLEXIBLE
-                    let isCorrect = false;
-                    const correctData = firstItem.reponseCorrecte || firstItem.correct || firstItem.answer;
-                    
-                    if (Array.isArray(correctData)) {
-                        isCorrect = correctData.includes(optValue) || correctData.includes(optLabel);
-                    } else {
-                        isCorrect = (correctData === optValue) || (correctData === optLabel);
-                    }
+                const opts = Array.isArray(item.options) ? item.options : [];
+                const correctRaw = Array.isArray(item.reponseCorrecte)
+                    ? item.reponseCorrecte[0]
+                    : (item.reponseCorrecte ?? item.correct ?? item.answer);
+                const correctByValue = String(correctRaw ?? "");
 
-                    const inputType = type === 'QCU' ? 'radio' : 'checkbox';
-                    const nameGroup = type === 'QCU' ? `grp_${containerId}` : '';
-                    
-                    row.innerHTML = `
-                        <input type="${inputType}" name="${nameGroup}" class="correct-check" ${isCorrect ? 'checked' : ''}>
-                        <textarea class="opt-text auto-grow" rows="1"></textarea>
-                        <button onclick="this.parentElement.remove()" class="delete-btn" style="background:none; border:none; color:red; font-size:1.2em;">×</button>
-                    `;
-                    
-                    document.getElementById(containerId).appendChild(row);
-                    
-                    // INJECTION SÉCURISÉE du texte
-                    const textarea = row.querySelector('.opt-text');
-                    safeSetValue(textarea, optLabel);
-                    
-                    console.log(`✅ Option ${idx}: "${optLabel}" (correct: ${isCorrect})`);
-                });
-            }
-            
-            // B. VRAI / FAUX
-            else if (type === 'VF') {
-                console.log("🎯 Traitement VF");
-                
-                const rep = (firstItem.reponseCorrecte || firstItem.correct || "").toString().toLowerCase();
-                const isVrai = (rep === 'vrai' || rep === 'true' || rep === 'v');
-                
+                if (opts.length === 0) {
+                    addOption(containerId);
+                    addOption(containerId);
+                } else {
+                    opts.forEach((opt) => {
+                        addOption(containerId);
+                        const rows = document.getElementById(containerId).querySelectorAll('.option-row');
+                        const row = rows[rows.length - 1];
+                        const optValue = String(opt?.value ?? opt?.id ?? "");
+                        const optLabel = getFlexibleText(opt, ['label', 'text', 'value', 'option']);
+                        safeSetValue(row.querySelector('.opt-text'), optLabel);
+                        const ck = row.querySelector('.correct-check');
+                        if (ck) ck.checked = optValue === correctByValue;
+                    });
+                }
+
+                addExplanationSecure(contentDiv, getFlexibleText(item, ['reponseAttendue', 'explication', 'correction', 'justification']));
+            } else if (type === "VF") {
+                const uid = Date.now() + Math.floor(Math.random() * 10000);
+                const rep = String(item.reponseCorrecte ?? item.correct ?? "").toLowerCase();
+                const isVrai = rep === 'vrai' || rep === 'true' || rep === 'v';
                 contentDiv.innerHTML = `
                     <div class="config-zone" style="background:linear-gradient(135deg, #e8f5e9 0%, #f0fdf4 100%); border-color:#86efac;">
                         <span class="config-label" style="color:#15803d;">🎯 Réponse attendue</span>
-                        <label style="margin-right:20px;font-weight:bold;color:#15803d;"><input type="radio" name="vf_${uid}" value="vrai" ${isVrai?'checked':''}> Vrai</label>
-                        <label style="font-weight:bold;color:#dc2626;"><input type="radio" name="vf_${uid}" value="faux" ${!isVrai?'checked':''}> Faux</label>
-                    </div>`;
-                
-                const explication = getFlexibleText(firstItem, ['reponseAttendue', 'explication', 'correction', 'justification']);
-                addExplanationSecure(contentDiv, explication);
-                
-                console.log(`✅ VF: ${isVrai ? 'Vrai' : 'Faux'}`);
-            }
-
-            // C. RELIER (MATCH)
-            else if (type === 'MATCH') {
-                console.log("🎯 Traitement MATCH");
-                
-                contentDiv.innerHTML = `
-                    <div class="config-zone">
-                        <span class="config-label">🔗 Paires importées</span>
-                        <div id="${containerId}"></div>
-                        <button onclick="addPair('${containerId}')" style="margin-top:10px;font-size:0.85em;cursor:pointer;background:#eee;border:none;padding:5px 10px;border-radius:4px;">+ Ajouter paire</button>
-                    </div>`;
-                
-                const explication = getFlexibleText(group.items[0], ['reponseAttendue', 'explication', 'correction']);
-                addExplanationSecure(contentDiv, explication);
-
-                group.items.forEach((item, idx) => {
-                    // Extraction flexible de la paire
-                    let txt = getFlexibleText(item, ['questionText', 'question', 'left', 'gauche']);
-                    const left = txt.replace(/Associer\s?:/i, '').replace(/Association\s?:/i, '').trim();
-                    const right = getFlexibleText(item, ['reponseCorrecte', 'correct', 'right', 'droite']) || "";
-                    
-                    const row = document.createElement('div');
-                    row.className = 'pair-row';
-                    row.innerHTML = `
-                        <textarea class="pair-left auto-grow" rows="1"></textarea>
-                        <span style="margin:0 10px;">⮕</span>
-                        <textarea class="pair-right auto-grow" rows="1"></textarea>
-                        <button onclick="this.parentElement.remove()" class="delete-btn" style="background:none; border:none; color:red; font-size:1.2em;">×</button>
-                    `;
-                    document.getElementById(containerId).appendChild(row);
-                    
-                    // INJECTION SÉCURISÉE
-                    safeSetValue(row.querySelector('.pair-left'), left);
-                    safeSetValue(row.querySelector('.pair-right'), right);
-                    
-                    console.log(`✅ Paire ${idx}: "${left}" → "${right}"`);
-                });
-            }
-
-            // D. TEXTES ET NOMBRES
-            else if (type === 'SHORT' || type === 'NUMBER') {
-                console.log("🎯 Traitement TEXT/NUMBER");
-                
-                let rep = getFlexibleText(firstItem, ['reponseCorrecte', 'correct', 'answer', 'reponse']);
-                if (Array.isArray(rep)) rep = rep.join('; ');
-                
+                        <label style="margin-right:20px;font-weight:bold;color:#15803d;"><input type="radio" name="vf_${uid}" value="vrai" ${isVrai ? 'checked' : ''}> Vrai</label>
+                        <label style="font-weight:bold;color:#dc2626;"><input type="radio" name="vf_${uid}" value="faux" ${!isVrai ? 'checked' : ''}> Faux</label>
+                    </div>
+                `;
+                addExplanationSecure(contentDiv, getFlexibleText(item, ['reponseAttendue', 'explication', 'correction', 'justification']));
+            } else if (type === "SHORT" || type === "NUMBER") {
+                const raw = item.reponseCorrecte ?? item.correct ?? item.answer ?? "";
+                const rep = Array.isArray(raw) ? raw.join('; ') : String(raw ?? "");
                 contentDiv.innerHTML = `
                     <div class="config-zone">
                         <span class="config-label">🎯 Réponse attendue</span>
                         <textarea class="valid-answers auto-grow" rows="1" style="border:2px solid #22c55e; font-family:monospace; font-weight:bold; color:#15803d; width:100%;"></textarea>
-                    </div>`;
-                
-                const explication = getFlexibleText(firstItem, ['reponseAttendue', 'explication', 'correction']);
-                addExplanationSecure(contentDiv, explication);
-                
+                    </div>
+                `;
                 safeSetValue(contentDiv.querySelector('.valid-answers'), rep);
-                
-                console.log(`✅ Réponse: "${rep}"`);
-            }
-
-            // E. CLOZE
-            else if (type === 'CLOZE') {
-                console.log("🎯 Traitement CLOZE");
-                
-                let reconstText = "Texte reconstruit :\n";
-                group.items.forEach((item, idx) => {
-                    const word = Array.isArray(item.reponseCorrecte) ? item.reponseCorrecte[0] : item.reponseCorrecte;
-                    reconstText += ` ... [${word || 'MOT'}] ... `;
-                });
-
-                contentDiv.innerHTML = `
-                    <div class="config-zone">
-                        <span class="config-label">🕳️ Texte à trous (reconstruit)</span>
-                        <textarea class="cloze-text auto-grow" style="min-height:100px; width:100%; font-family:monospace;"></textarea>
-                         <div style="margin-top:8px;">
-                            <label><input type="checkbox" class="cloze-mode" ${firstItem.inputType === 'select' ? 'checked' : ''}> Mode Liste</label>
-                        </div>
-                    </div>`;
-                
-                const explication = getFlexibleText(group.items[0], ['reponseAttendue', 'explication']);
-                addExplanationSecure(contentDiv, explication);
-                
-                safeSetValue(contentDiv.querySelector('.cloze-text'), reconstText);
-                
-                console.log("✅ CLOZE reconstitué");
+                addExplanationSecure(contentDiv, getFlexibleText(item, ['reponseAttendue', 'explication', 'correction', 'justification']));
             }
         });
         
@@ -1722,7 +1480,6 @@ ${embeddedBlueprintScript}
             return;
         }
 
-        // Génération des données (même logique)
         const blueprint = {
             id: devoirId,
             devoirId: devoirId,
@@ -1731,7 +1488,8 @@ ${embeddedBlueprintScript}
             competences: [],
             version: "v1",
             autocorrect: true,
-            content: [] 
+            options: { antiLeave: true, antiPaste: true, maxLeaves: 2 },
+            content: []
         };
 
         const usedComps = new Set();
@@ -1759,23 +1517,23 @@ ${embeddedBlueprintScript}
             const competence = block.querySelector('.q-comp').value;
             usedComps.add(competence);
 
-            // --- 1. QCM / QCU ---
-            if (type === 'QCU' || type === 'QCM') {
+            if (type === 'QCU') {
                 let options = [];
                 let correctVal = null;
-                let correctVals = [];
                 let correctText = "";
 
                 block.querySelectorAll('.option-row').forEach((row, idx) => {
                     const txt = row.querySelector('.opt-text').value.trim();
-                    const val = `opt_${idx}_${Date.now()}`;
+                    const val = `${qidBase}_opt${idx+1}`;
                     const isCorrect = row.querySelector('.correct-check').checked;
                     
                     if(txt) {
                         options.push({ value: val, label: txt });
                         if(isCorrect) {
-                            if(type === 'QCU') { correctVal = val; correctText = txt; }
-                            else { correctVals.push(val); correctText += (correctText?", ":"") + txt; }
+                            if (correctVal === null) {
+                                correctVal = val;
+                                correctText = txt;
+                            }
                         }
                     }
                 });
@@ -1790,10 +1548,10 @@ ${embeddedBlueprintScript}
                     label: qCounter.toString(),
                     competence: competence,
                     bareme: bareme,
-                    inputType: type === 'QCU' ? 'select' : (type === 'QCM' ? 'checkbox' : 'vrai_faux'),
+                    inputType: "select",
                     autocorrect: true,
                     questionText: enonce,
-                    reponseCorrecte: type === 'QCM' ? correctVals : correctVal,
+                    reponseCorrecte: correctVal,
                     reponseAttendue: finalExplanation,
                     options: options
                 });
@@ -1805,11 +1563,8 @@ ${embeddedBlueprintScript}
                         <div class="q-text">${enonce}</div>
                         <div class="checkbox-group">
                 `;
-                const shuffled = [...options].sort(() => Math.random() - 0.5);
-                shuffled.forEach(opt => {
-                    const inputType = type === 'QCU' ? 'radio' : 'checkbox';
-                    const nameAttr = type === 'QCU' ? `name="${qidBase}"` : '';
-                    studentHtmlQuestions += `<label><input type="${inputType}" ${nameAttr} value="${opt.value}" class="reponse-eleve" data-qid="${qidBase}"> ${opt.label}</label>`;
+                options.forEach(opt => {
+                    studentHtmlQuestions += `<label><input type="radio" name="${qidBase}" value="${opt.value}" class="reponse-eleve" data-qid="${qidBase}"> ${opt.label}</label>`;
                 });
                 studentHtmlQuestions += `</div></div>`;
                 qCounter++;
@@ -1869,118 +1624,14 @@ ${embeddedBlueprintScript}
                 `;
                 qCounter++;
             }
-            else if (type === 'MATCH') {
-                const pairs = [];
-                block.querySelectorAll('.pair-row').forEach(row => {
-                    const l = row.querySelector('.pair-left').value.trim();
-                    const r = row.querySelector('.pair-right').value.trim();
-                    if(l && r) pairs.push({l, r});
-                });
-
-                const allRights = pairs.map(p => p.r).sort(() => Math.random() - 0.5);
-                const options = allRights.map(r => ({ value: r, label: r }));
-                const pointsPerPair = Number((bareme / pairs.length).toFixed(2));
-
-                studentHtmlQuestions += `
-                    <div class="question-block">
-                        <span class="q-label">${qCounter}</span><span class="q-comp">${competence}</span><span class="q-points">${bareme} pts</span>
-                        <div class="q-text">${enonce}</div>
-                        <div class="table-wrapper"><table class="eval-table"><tbody>
-                `;
-
-                pairs.forEach((p, idx) => {
-                    const subQid = `${qidBase}_pair_${idx}`;
-                    blueprint.content.push({
-                        type: "question",
-                        qid: subQid,
-                        label: `${qCounter}${String.fromCharCode(97 + idx)}`,
-                        competence: competence,
-                        bareme: pointsPerPair,
-                        inputType: "select",
-                        autocorrect: true,
-                        questionText: `Associer : ${p.l}`,
-                        reponseCorrecte: p.r,
-                        reponseAttendue: p.r,
-                        options: options
-                    });
-
-                    const optsHtml = `<option value="">--</option>` + allRights.map(r => `<option value="${r}">${r}</option>`).join('');
-                    studentHtmlQuestions += `<tr><td>${p.l}</td><td><select class="reponse-eleve answer-select" data-qid="${subQid}">${optsHtml}</select></td></tr>`;
-                });
-
-                studentHtmlQuestions += `</tbody></table></div></div>`;
-                qCounter++;
-            }
-            // --- 5. CLOZE (Atomisé pour le runner) ---
-            else if (type === 'CLOZE') {
-                const rawText = block.querySelector('.cloze-text').value;
-                const isSelect = block.querySelector('.cloze-mode').checked;
-                const regex = /\[(.*?)\]/g;
-                let parts = rawText.split(regex);
-                let matches = rawText.match(regex) || [];
-                let answers = matches.map(m => m.replace('[','').replace(']',''));
-                
-                if (answers.length === 0) return; // Ignore si aucun trou
-                
-                const pointsPerHole = Number((bareme / answers.length).toFixed(2));
-                const uniqueOptions = isSelect ? [...new Set(answers)].sort(() => Math.random() - 0.5).map(a => ({value: a, label: a})) : [];
-
-                // Explication personnalisée ou fallback
-                const explanation = block.querySelector('.q-explain').value.trim();
-                const basicAnswer = answers.join(', ');
-                const finalExplanation = explanation || `Réponses attendues : ${basicAnswer}`;
-
-                studentHtmlQuestions += `
-                    <div class="question-block">
-                        <span class="q-label">${qCounter}</span><span class="q-comp">${competence}</span><span class="q-points">${bareme} pts</span>
-                        <div class="q-text">${enonce}</div>
-                        <div style="line-height:2.2;">
-                `;
-
-                let holeIndex = 0;
-                parts.forEach((part, idx) => {
-                    studentHtmlQuestions += part.replace(/\n/g, '<br>');
-                    if (idx < matches.length) {
-                        const subQid = `${qidBase}_hole_${holeIndex}`;
-                        const correct = answers[holeIndex];
-                        
-                        blueprint.content.push({
-                            type: "question",
-                            qid: subQid,
-                            label: `${qCounter}.${holeIndex+1}`,
-                            competence: competence,
-                            bareme: pointsPerHole,
-                            inputType: isSelect ? "select" : "texte_exact",
-                            autocorrect: true,
-                            questionText: `Texte à trous (${holeIndex+1})`,
-                            reponseCorrecte: isSelect ? correct : [correct],
-                            reponseAttendue: finalExplanation,
-                            options: isSelect ? uniqueOptions : undefined
-                        });
-
-                        if (isSelect) {
-                            const optsHtml = `<option value="">...</option>` + uniqueOptions.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
-                            studentHtmlQuestions += `<select class="reponse-eleve answer-select" data-qid="${subQid}" style="display:inline-block;width:auto;">${optsHtml}</select>`;
-                        } else {
-                            studentHtmlQuestions += `<input type="text" class="reponse-eleve answer-input" data-qid="${subQid}" style="display:inline-block;width:120px;">`;
-                        }
-                        holeIndex++;
-                    }
-                });
-
-                studentHtmlQuestions += `</div></div>`;
-                qCounter++;
-            }
         });
 
         blueprint.competences = Array.from(usedComps).sort();
-        const finalStudentHTML = generateStudentTemplate(titre, devoirId, studentHtmlQuestions, blueprint.competences, blueprint);
-
-        // EXPORT ÉCHELONNÉ POUR ÉVITER LES BLOCAGES
-        
-        // 1. Export Blueprint JSON immédiatement
         blueprint.questions = blueprint.content;
         blueprint.items = blueprint.content;
+
+        const finalStudentHTML = generateStudentTemplate(titre, devoirId, studentHtmlQuestions, blueprint.competences, blueprint);
+
         downloadFile(JSON.stringify(blueprint, null, 4), `${devoirId}_blueprint.json`, 'application/json');
         showNotification(`📄 Blueprint téléchargé ! Fichier élève dans 2 secondes...`, 'info');
         
