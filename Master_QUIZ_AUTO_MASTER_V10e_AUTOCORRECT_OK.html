@@ -1546,7 +1546,7 @@
 
 ${embeddedBlueprintScript}
 
-<script type="module">
+<script>
     const statusEl = document.getElementById("envoi-status");
     const segRaw = location.pathname.split("/").filter(Boolean)[0] || "";
     const seg = segRaw.includes(".") ? "" : segRaw;
@@ -1558,52 +1558,75 @@ ${embeddedBlueprintScript}
 
     function buildUrl(prefix, relPath) {
         const p = prefix || "";
-        const base = p ? p.replace(/\/+$, "") : "";
+        const base = p ? p.replace(/\/+$/, "") : "";
         const rel = String(relPath || "").replace(/^\/+/, "");
         return (base ? base + "/" : "/") + rel;
     }
 
-    async function importWithPrefixes(fileRelativePath, optionalRelativePaths = []) {
-        let lastError = null;
-        const attempts = [];
-
-        uniquePrefixes.forEach(prefix => attempts.push(buildUrl(prefix, fileRelativePath)));
-        optionalRelativePaths.forEach(opt => {
-            uniquePrefixes.forEach(prefix => attempts.push(buildUrl(prefix, opt)));
+    function loadScript(url) {
+        return new Promise((resolve, reject) => {
+            const existing = Array.from(document.querySelectorAll("script")).find((s) => s.src === url);
+            if (existing && existing.dataset.loaded === "1") return resolve(url);
+            if (existing) {
+                existing.addEventListener("load", () => resolve(url), { once: true });
+                existing.addEventListener("error", (e) => reject(e), { once: true });
+                return;
+            }
+            const s = document.createElement("script");
+            s.src = url;
+            s.async = true;
+            s.onload = () => { s.dataset.loaded = "1"; resolve(url); };
+            s.onerror = reject;
+            document.head.appendChild(s);
         });
+    }
 
-        const uniqueAttempts = [...new Set(attempts)];
-
-        for (const url of uniqueAttempts) {
+    async function loadFirst(urls) {
+        let lastError = null;
+        for (const url of urls) {
             try {
-                console.warn("Tentative import:", url);
-                await import(url);
+                console.warn("Tentative chargement:", url);
+                await loadScript(url);
                 return url;
             } catch (e) {
                 lastError = e;
-                console.warn("Import échoué:", url, e);
+                console.warn("Chargement échoué:", url, e);
             }
         }
-
-        throw lastError || new Error("Impossible de charger le module: " + fileRelativePath);
+        throw lastError || new Error("Aucun script chargé");
     }
 
-    try {
-        statusEl.textContent = "Chargement des modules...";
+    (async () => {
+        try {
+            statusEl.textContent = "Chargement des modules...";
 
-        const annuaireUrl = "https://preventionsanteenvironnement.github.io/PSE/annuaire.js";
-        const runnerUrl = "https://preventionsanteenvironnement.github.io/PSE/assets/pse-runner.js";
+            const annuaireCandidates = [];
+            const runnerCandidates = [];
+            uniquePrefixes.forEach((prefix) => {
+                annuaireCandidates.push(buildUrl(prefix, "annuaire.js"));
+                annuaireCandidates.push(buildUrl(prefix, "PSE/annuaire.js"));
+                runnerCandidates.push(buildUrl(prefix, "assets/pse-runner.js"));
+                runnerCandidates.push(buildUrl(prefix, "PSE/assets/pse-runner.js"));
+            });
 
-        await import(annuaireUrl);
-        await import(runnerUrl);
+            annuaireCandidates.push("https://preventionsanteenvironnement.github.io/PSE/annuaire.js");
+            runnerCandidates.push("https://preventionsanteenvironnement.github.io/PSE/assets/pse-runner.js");
 
-        console.log("Modules chargés:", { annuaireUrl, runnerUrl, seg, prefixes: uniquePrefixes });
-        statusEl.textContent = "Système prêt.";
-    } catch(e) {
-        console.error("Erreur modules:", e);
-        statusEl.textContent = "Erreur de chargement des modules (chemins serveur à vérifier).";
-        statusEl.style.color = "red";
-    }
+            const annuaireUrl = await loadFirst([...new Set(annuaireCandidates)]);
+            const runnerUrl = await loadFirst([...new Set(runnerCandidates)]);
+
+            if (typeof window.envoyerCopie !== "function") {
+                throw new Error("envoyerCopie non disponible après chargement.");
+            }
+
+            console.log("Modules chargés:", { annuaireUrl, runnerUrl, seg, prefixes: uniquePrefixes });
+            statusEl.textContent = "Système prêt.";
+        } catch (e) {
+            console.error("Erreur modules:", e);
+            statusEl.textContent = "Erreur de chargement des modules (chemins serveur à vérifier).";
+            statusEl.style.color = "red";
+        }
+    })();
 <\/script>
 </body>
 </html>`;
