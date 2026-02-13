@@ -1399,15 +1399,15 @@
         }
     </style>
 </head>
-<body data-id-exercice="${devoirId}">
+<body data-id-exercice="\${devoirId}">
 <div class="container">
     <div class="header">
-        <h1>${titre}</h1>
+        <h1>\${titre}</h1>
         <div class="subtitle">Quiz Auto-Corrigé</div>
     </div>
     <div class="competences-box">
         <h3>Compétences évaluées</h3>
-        <ul>${compList}</ul>
+        <ul>\${compList}</ul>
     </div>
     <div class="body-content">
 
@@ -1419,7 +1419,7 @@
         </div>
     </div>
 
-    ${contentHTML}
+    \${contentHTML}
 
     <div class="submit-section">
         <button class="submit-btn" id="btn-envoyer" onclick="window.tenterEnvoi()">Envoyer ma copie 📤</button>
@@ -1544,7 +1544,7 @@
     };
 <\/script>
 
-${embeddedBlueprintScript}
+\${embeddedBlueprintScript}
 
 <script type="module" src="https://mapse.fr/annuaire.js"><\/script>
 <script type="module" src="https://mapse.fr/assets/pse-runner.js"><\/script>
