@@ -106,23 +106,23 @@
     .q-controls { 
         display: flex; align-items: center; gap: 8px; margin-left: auto; 
     }
-    .question-block[data-type="SEPARATOR"] .q-enonce,
-    .question-block[data-type="TITLE"] .q-enonce,
-    .question-block[data-type="BOX_NOTE"] .q-enonce,
-    .question-block[data-type="IMAGE"] .q-enonce,
-    .question-block[data-type="DOCGROUP"] .q-enonce {
+    .question-block[data-type="SEPARATOR"] > .q-header .q-enonce,
+    .question-block[data-type="TITLE"] > .q-header .q-enonce,
+    .question-block[data-type="BOX_NOTE"] > .q-header .q-enonce,
+    .question-block[data-type="IMAGE"] > .q-header .q-enonce,
+    .question-block[data-type="DOCGROUP"] > .q-header .q-enonce {
         display: none;
     }
-    .question-block[data-type="SEPARATOR"] .q-controls .q-comp,
-    .question-block[data-type="SEPARATOR"] .q-controls .q-points,
-    .question-block[data-type="TITLE"] .q-controls .q-comp,
-    .question-block[data-type="TITLE"] .q-controls .q-points,
-    .question-block[data-type="BOX_NOTE"] .q-controls .q-comp,
-    .question-block[data-type="BOX_NOTE"] .q-controls .q-points,
-    .question-block[data-type="IMAGE"] .q-controls .q-comp,
-    .question-block[data-type="IMAGE"] .q-controls .q-points,
-    .question-block[data-type="DOCGROUP"] .q-controls .q-comp,
-    .question-block[data-type="DOCGROUP"] .q-controls .q-points {
+    .question-block[data-type="SEPARATOR"] > .q-header .q-controls .q-comp,
+    .question-block[data-type="SEPARATOR"] > .q-header .q-controls .q-points,
+    .question-block[data-type="TITLE"] > .q-header .q-controls .q-comp,
+    .question-block[data-type="TITLE"] > .q-header .q-controls .q-points,
+    .question-block[data-type="BOX_NOTE"] > .q-header .q-controls .q-comp,
+    .question-block[data-type="BOX_NOTE"] > .q-header .q-controls .q-points,
+    .question-block[data-type="IMAGE"] > .q-header .q-controls .q-comp,
+    .question-block[data-type="IMAGE"] > .q-header .q-controls .q-points,
+    .question-block[data-type="DOCGROUP"] > .q-header .q-controls .q-comp,
+    .question-block[data-type="DOCGROUP"] > .q-header .q-controls .q-points {
         display: none;
     }
     .docgroup-block {
@@ -165,8 +165,61 @@
         padding: 6px 0;
         margin-bottom: 8px;
     }
+    .docgroup-linked .q-enonce {
+        display: block !important;
+        min-height: 42px;
+        background: rgba(255,255,255,0.92);
+        border: 1px dashed #c6b071;
+        border-radius: 6px;
+        padding: 8px 10px;
+        pointer-events: auto;
+        position: relative;
+        z-index: 2;
+    }
     .docgroup-linked .config-zone {
         background: rgba(255,255,255,0.65);
+    }
+    .docgroup-title {
+        font-weight: 700;
+        background: rgba(255,255,255,0.92);
+        border: 1px dashed #d2b86e;
+        border-radius: 6px;
+        padding: 8px 10px;
+    }
+    @media print {
+        body {
+            background: #fff !important;
+            color: #000 !important;
+            padding: 0 !important;
+            font-size: 12pt;
+        }
+        .tools-panel,
+        .quiz-stats,
+        .delete-btn,
+        .insert-btn,
+        .validation-modal,
+        #empty-msg {
+            display: none !important;
+        }
+        .container, .question-block, .document-box, .docgroup-inner {
+            box-shadow: none !important;
+        }
+        .container {
+            max-width: 100% !important;
+            border-radius: 0 !important;
+        }
+        .question-block,
+        .document-box,
+        .docgroup-inner {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+        h1, h2, h3, h4 {
+            color: #111 !important;
+        }
+        .q-header {
+            background: #f5f5f5 !important;
+        }
     }
     .q-controls select, .q-controls input {
         font-weight: 600; font-size: 0.9em;
@@ -433,6 +486,7 @@
     <button class="btn-tool" style="background:linear-gradient(135deg, #0ea5e9, #0284c7);" onclick="saveDraftJSON()">💾 Sauvegarder JSON</button>
     <button class="btn-tool" style="background:linear-gradient(135deg, #06b6d4, #0891b2);" onclick="importJSON()">📥 Import JSON</button>
     <button class="btn-tool" style="background:linear-gradient(135deg, #0891b2, #0e7490);" onclick="importJSONFromPaste()">📝 Coller JSON</button>
+    <button class="btn-tool" style="background:linear-gradient(135deg, #334155, #1f2937);" onclick="printPDF()">🖨️ Imprimer</button>
     <span style="width:1px;background:rgba(255,255,255,0.2);margin:0 8px;"></span>
     <button class="btn-tool btn-export" onclick="attemptExport()">🚀 EXPORTER</button>
 </div>
@@ -853,7 +907,7 @@
             const type = el.dataset.type;
             if (!countsAsQuestionType(type)) {
                 const numEl = el.querySelector('.q-num');
-                if (numEl) numEl.textContent = "•";
+                if (numEl) numEl.textContent = type === "DOCGROUP" ? "📚" : "•";
             }
         });
         qCount = i - 1;
@@ -876,6 +930,16 @@
                     <div class="q-num">📄</div>
                     <textarea class="doc-title-input auto-grow" rows="1" placeholder="Titre du document" oninput="autoResize(this)" style="font-weight:bold; background:transparent; border:none; border-bottom:2px dashed #f59e0b; color:#d97706; flex:1;"></textarea>
                     <button class="delete-btn" onclick="removeBlock(this)">Supprimer</button>
+                </div>
+            `;
+        } else if (type === 'DOCGROUP') {
+            headerHtml = `
+                <div class="q-header" style="background:linear-gradient(135deg, #fff3cd 0%, #fef3c7 100%); border-color:#fbbf24;">
+                    <div class="q-num">📚</div>
+                    <div style="flex:1; font-weight:800; color:#8a5a00; padding-top:6px;">Document + questions liées (bloc non compté)</div>
+                    <div class="q-controls">
+                        <button class="delete-btn" onclick="removeBlock(this)">Supprimer</button>
+                    </div>
                 </div>
             `;
         } else {
@@ -1375,6 +1439,10 @@
         }
         const validation = validateQuiz();
         showValidation(validation);
+    }
+
+    function printPDF() {
+        window.print();
     }
 
     function generateStudentTemplate(titre, devoirId, contentHTML, competences, blueprintData = null) {
