@@ -2068,7 +2068,9 @@
 
             safeSetValue(block.querySelector('.q-enonce'), imported?.enonce || group.title);
             safeSetValue(block.querySelector('.q-comp'), imported?.competence || group.competence);
-            const totalPoints = imported?.points ?? group.rows.reduce((sum, r) => sum + (parseFloat(r.item.bareme || r.item.points || 0) || 0), 0);
+            const totalPoints = (imported && typeof imported.points !== "undefined")
+                ? imported.points
+                : group.rows.reduce((sum, r) => sum + (parseFloat(r.item.bareme || r.item.points || 0) || 0), 0);
             safeSetValue(block.querySelector('.q-points'), Number(totalPoints.toFixed(2)));
             const firstExp = imported?.explanation || getFlexibleText(group.rows[0]?.item, ['reponseAttendue', 'explication', 'correction', 'justification']);
             safeSetValue(block.querySelector('.q-explain'), firstExp);
@@ -2136,7 +2138,7 @@
                 const correctSet = new Set(
                     (Array.isArray(item.reponseCorrecte)
                         ? item.reponseCorrecte
-                        : String(item.reponseCorrecte ?? item.correct ?? item.answer || "").split(";")
+                        : String(item.reponseCorrecte ?? item.correct ?? item.answer ?? "").split(";")
                     ).map((s) => String(s || "").trim()).filter(Boolean)
                 );
 
