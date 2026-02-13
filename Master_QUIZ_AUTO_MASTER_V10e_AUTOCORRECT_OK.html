@@ -392,6 +392,13 @@
 
 <script>
     let qCount = 0;
+    const ALLOWED_TYPES = new Set([
+        "QCU", "VF", "NUMBER", "SHORT", "SELECT",
+        "QQOQCP", "ITAMAMI", "PAD",
+        "DOC", "IMAGE", "TITLE", "BOX_NOTE", "SEPARATOR",
+        // Legacy aliases still accepted for import compatibility
+        "ENC_KQQOQCP", "ENC_ITAMAMI", "ENC_PAD"
+    ]);
     window.MasterWidgets = window.MasterWidgets || (function() {
         const registry = {};
         return {
@@ -610,26 +617,26 @@
         importFromBlueprint() { return null; }
     });
     window.MasterWidgets.register("QQOQCP", createEncWidgetDef("Compléter le tableau QQOQCP", [
-        { key: "qui", label: "Qui" },
-        { key: "quoi", label: "Quoi" },
-        { key: "ou", label: "Où" },
-        { key: "quand", label: "Quand" },
-        { key: "comment", label: "Comment" },
-        { key: "pourquoi", label: "Pourquoi" }
+        { key: "qui", label: "QUI" },
+        { key: "quoi", label: "QUOI" },
+        { key: "ou", label: "OU" },
+        { key: "quand", label: "QUAND" },
+        { key: "comment", label: "COMMENT" },
+        { key: "pourquoi", label: "POURQUOI" }
     ], "qqoqcp"));
     window.MasterWidgets.register("PAD", createEncWidgetDef("Compléter le tableau PAD", [
-        { key: "operateur", label: "Opérateur" },
-        { key: "danger", label: "Danger" },
-        { key: "situation_dangereuse", label: "Situation dangereuse" },
-        { key: "evenement_declencheur", label: "Événement déclencheur" },
-        { key: "dommage", label: "Dommage" }
+        { key: "operateur", label: "OPERATEUR" },
+        { key: "danger", label: "DANGER" },
+        { key: "situation_dangereuse", label: "SITUATION_DANGEREUSE" },
+        { key: "evenement_declencheur", label: "EVENEMENT_DECLENCHEUR" },
+        { key: "dommage", label: "DOMMAGE" }
     ], "pad"));
     window.MasterWidgets.register("ITAMAMI", createEncWidgetDef("Compléter le tableau ITAMAMI", [
-        { key: "individu", label: "Individu" },
-        { key: "tache", label: "Tâche" },
-        { key: "activite", label: "Activité" },
-        { key: "materiel", label: "Matériel" },
-        { key: "milieu", label: "Milieu" }
+        { key: "individu", label: "INDIVIDU" },
+        { key: "tache", label: "TACHE" },
+        { key: "activite", label: "ACTIVITE" },
+        { key: "materiel", label: "MATERIEL" },
+        { key: "milieu", label: "MILIEU" }
     ], "itamami"));
     // Alias legacy
     window.MasterWidgets.register("ENC_KQQOQCP", getWidgetDef("QQOQCP"));
@@ -863,23 +870,22 @@
 
     function addQuestionAfter(btn) {
         const block = btn.closest('.question-block');
-        const allowed = ['QCU', 'VF', 'SELECT', 'NUMBER', 'SHORT'];
+        const allowed = ['SHORT', 'QCU', 'SELECT'];
         const labels = {
+            SHORT: "Texte",
             QCU: "QCU",
-            VF: "Vrai/Faux",
-            SELECT: "Liste déroulante",
-            NUMBER: "Nombre",
-            SHORT: "Texte"
+            SELECT: "Liste déroulante"
         };
         const typed = prompt(
             "Type de question sous ce document:\n" +
-            "QCU (défaut), VF, SELECT, NUMBER, SHORT",
-            "QCU"
+            "SHORT/TEXTE (défaut), QCU, SELECT",
+            "SHORT"
         );
-        const wanted = String(typed || "QCU").trim().toUpperCase();
-        const chosen = allowed.includes(wanted) ? wanted : "QCU";
-        if (typed !== null && !allowed.includes(wanted)) {
-            showNotification(`Type non reconnu, QCU appliqué (types supportés: ${allowed.map((t) => labels[t]).join(", ")})`, "info");
+        const wanted = String(typed || "SHORT").trim().toUpperCase();
+        const normalized = (wanted === "TEXTE" || wanted === "TEXTE_LIBRE") ? "SHORT" : wanted;
+        const chosen = allowed.includes(normalized) ? normalized : "SHORT";
+        if (typed !== null && !allowed.includes(normalized)) {
+            showNotification(`Type non reconnu, Texte appliqué (types supportés: ${allowed.map((t) => labels[t]).join(", ")})`, "info");
         }
         addBlock(chosen, block);
     }
@@ -1129,6 +1135,66 @@
         return { issues, warnings, canExport: issues.length === 0 };
     }
 
+    function runExportSelfCheck() {
+        const errors = [];
+        const blocks = Array.from(document.querySelectorAll('.question-block'));
+        let qIdx = 0;
+
+        blocks.forEach((block) => {
+            const type = String(block.dataset.type || "");
+            if (!ALLOWED_TYPES.has(type)) {
+                errors.push(`Type non autorisé détecté: ${type || "inconnu"}`);
+                return;
+            }
+            if (!countsAsQuestionType(type)) {
+                if (["SEPARATOR", "TITLE", "BOX_NOTE", "IMAGE", "DOC"].includes(type) && countsAsQuestionType(type)) {
+                    errors.push(`Bloc décoratif compté comme question: ${type}`);
+                }
+                return;
+            }
+
+            qIdx += 1;
+            if (type === "QCU") {
+                const rows = Array.from(block.querySelectorAll('.option-row'));
+                const valid = rows.filter((row) => String(row.querySelector('.opt-text')?.value || "").trim());
+                const checked = rows.filter((row) => row.querySelector('.correct-check')?.checked && String(row.querySelector('.opt-text')?.value || "").trim());
+                if (valid.length < 2 || checked.length !== 1) {
+                    errors.push(`QCU numéro ${qIdx} doit avoir au moins 2 options et 1 seule bonne réponse`);
+                }
+            }
+
+            if (type === "SELECT") {
+                const rows = Array.from(block.querySelectorAll('.option-row'));
+                const valid = rows.filter((row) => String(row.querySelector('.opt-text')?.value || "").trim());
+                const checked = rows.filter((row) => row.querySelector('.correct-check')?.checked && String(row.querySelector('.opt-text')?.value || "").trim());
+                if (valid.length < 2 || checked.length !== 1) {
+                    errors.push(`Liste déroulante numéro ${qIdx} doit avoir au moins 2 options et 1 seule bonne réponse`);
+                }
+            }
+
+            if (type === "NUMBER") {
+                const raw = String(block.querySelector('.valid-answers')?.value || "").trim();
+                if (!raw) {
+                    errors.push(`Nombre numéro ${qIdx} sans réponse attendue`);
+                } else {
+                    const first = raw.split(';').map((s) => s.trim()).filter(Boolean)[0];
+                    if (!first || Number.isNaN(Number(first))) {
+                        errors.push(`Nombre numéro ${qIdx} doit avoir une réponse numérique valide`);
+                    }
+                }
+            }
+
+            if (isEncType(type)) {
+                const activeRows = getActiveEncRows(block);
+                if (!activeRows.length) {
+                    errors.push(`${type} numéro ${qIdx} doit avoir au moins 1 ligne active`);
+                }
+            }
+        });
+
+        return { ok: errors.length === 0, errors };
+    }
+
     function showValidation(validation) {
         const modal = document.getElementById('validation-modal');
         const list = document.getElementById('validation-list');
@@ -1178,6 +1244,11 @@
     // ============================================================
 
     function attemptExport() {
+        const selfCheck = runExportSelfCheck();
+        if (!selfCheck.ok) {
+            showExportErrors("❌ Export bloqué : self-check invalide", selfCheck.errors);
+            return;
+        }
         const validation = validateQuiz();
         showValidation(validation);
     }
@@ -1583,6 +1654,7 @@ ${embeddedBlueprintScript}
                     "GARDER tous les identifiants identiques",
                     "NE JAMAIS transformer une question vers un autre type",
                     "Types autorisés : QCU, SELECT, VF, NUMBER, SHORT, QQOQCP, PAD, ITAMAMI, DOC, IMAGE, TITLE, BOX_NOTE, SEPARATOR",
+                    "QCM interdit: si plusieurs bonnes réponses possibles, transformer en SELECT à réponse unique ou en plusieurs QCU",
                     "Niveau pédagogique : " + niveau,
                     "Utiliser le PDF cours fourni comme référence"
                 ],
@@ -1629,10 +1701,11 @@ ${embeddedBlueprintScript}
 
             // Template selon type
             if (type === 'QCU' || type === 'SELECT') {
-                const optCount = block.querySelectorAll('.option-row').length || 4;
+                const baseCount = block.querySelectorAll('.option-row').length || 4;
+                const optCount = type === "QCU" ? Math.max(3, baseCount) : Math.max(2, baseCount);
                 const emptyOptions = Array.from({length: optCount}, (_, i) => ({
                     value: `${qidBase}_opt${i+1}`,
-                    label: `[OPTION ${i+1} À REMPLIR]`
+                    label: `[OPTION ${i+1}]`
                 }));
 
                 template.content.push({
@@ -1813,6 +1886,9 @@ ${embeddedBlueprintScript}
 
         data.questions.forEach((q) => {
             const type = q.type || 'SHORT';
+            if (!ALLOWED_TYPES.has(type)) {
+                throw new Error(`Type de bloc non supporté dans le draft: ${type}`);
+            }
 
             if (type === 'DOC') {
                 const contentDiv = createBlockSkeleton('DOC', null);
@@ -1937,6 +2013,12 @@ ${embeddedBlueprintScript}
             if (hasDraftQcm) {
                 throw new Error("Import refusé : le type QCM n'est plus supporté par ce master.");
             }
+            const badDraftTypes = data.questions
+                .map((q, idx) => ({ type: String(q?.type || ""), idx }))
+                .filter((x) => x.type && !ALLOWED_TYPES.has(x.type));
+            if (badDraftTypes.length) {
+                throw new Error(`Import refusé : type non supporté (${badDraftTypes.map((x) => `${x.type} item ${x.idx + 1}`).join(", ")}).`);
+            }
             restoreDraftJSON(data);
             showNotification("✅ Draft importé avec succès", "success");
             return;
@@ -1944,6 +2026,13 @@ ${embeddedBlueprintScript}
 
         if (!data.content || !Array.isArray(data.content)) {
             throw new Error("Format JSON invalide: content[] manquant.");
+        }
+
+        const badBlueprintTypes = data.content
+            .map((item, idx) => ({ type: String(item?.type || ""), idx }))
+            .filter((x) => x.type && x.type.toUpperCase() === "QCM");
+        if (badBlueprintTypes.length) {
+            throw new Error(`Import refusé : QCM non supporté (${badBlueprintTypes.map((x) => `item ${x.idx + 1}`).join(", ")}). Utilisez QCU ou Liste déroulante.`);
         }
 
         const qcmErrors = [];
@@ -2384,6 +2473,11 @@ ${embeddedBlueprintScript}
         const devoirId = document.getElementById('devoir-id').value.trim() || `quiz_${Date.now()}`;
         const titre = document.getElementById('titre-devoir').value || "Devoir";
         const niveau = document.getElementById('niveau-cible').value || "Bac Pro";
+        const selfCheck = runExportSelfCheck();
+        if (!selfCheck.ok) {
+            showExportErrors("❌ Export bloqué : self-check invalide", selfCheck.errors);
+            return;
+        }
         const preCheck = assertAnswerBindings({ phase: "pre-export" });
         if (!preCheck.ok) {
             showExportErrors("❌ Export bloqué : incohérences qid détectées", preCheck.errors);
