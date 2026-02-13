@@ -106,6 +106,22 @@
     .q-controls { 
         display: flex; align-items: center; gap: 8px; margin-left: auto; 
     }
+    .question-block[data-type="SEPARATOR"] .q-enonce,
+    .question-block[data-type="TITLE"] .q-enonce,
+    .question-block[data-type="BOX_NOTE"] .q-enonce,
+    .question-block[data-type="IMAGE"] .q-enonce {
+        display: none;
+    }
+    .question-block[data-type="SEPARATOR"] .q-controls .q-comp,
+    .question-block[data-type="SEPARATOR"] .q-controls .q-points,
+    .question-block[data-type="TITLE"] .q-controls .q-comp,
+    .question-block[data-type="TITLE"] .q-controls .q-points,
+    .question-block[data-type="BOX_NOTE"] .q-controls .q-comp,
+    .question-block[data-type="BOX_NOTE"] .q-controls .q-points,
+    .question-block[data-type="IMAGE"] .q-controls .q-comp,
+    .question-block[data-type="IMAGE"] .q-controls .q-points {
+        display: none;
+    }
     .q-controls select, .q-controls input {
         font-weight: 600; font-size: 0.9em;
     }
@@ -352,7 +368,6 @@
 
 <div class="tools-panel">
     <button class="btn-tool btn-qcm" onclick="addBlock('QCU')">🔘 QCU</button>
-    <button class="btn-tool btn-qcm" onclick="addBlock('QCM')">☑️ QCM</button>
     <button class="btn-tool btn-vf" onclick="addBlock('VF')">✅ Vrai/Faux</button>
     <button class="btn-tool btn-text" onclick="addBlock('NUMBER')">🔢 Nombre</button>
     <button class="btn-tool btn-text" onclick="addBlock('SHORT')">✍️ Texte</button>
@@ -459,7 +474,6 @@
             exportToBlueprint(block, ctx) {
                 const rows = getActiveEncRows(block);
                 if (!rows.length) return [];
-                const mode = String(block.querySelector(".enc-mode")?.value || "TEXT").toUpperCase();
                 const rowPoints = splitPoints(ctx.bareme, rows.length);
                 const explanation = block.querySelector('.q-explain')?.value?.trim() || "";
                 return rows.map((row, idx) => {
@@ -473,32 +487,19 @@
                         label: `${ctx.qCounter}.${idx + 1}`,
                         competence: ctx.competence,
                         bareme: rowPoints[idx] ?? 0,
+                        inputType: "texte_exact",
+                        autocorrect: false,
+                        besoinCorrectionManuelle: true,
                         questionText: `${ctx.enoncePlain} — ${lineLabel}`,
+                        reponseCorrecte: [],
                         reponseAttendue: explanation
                     };
-                    if (mode === "SELECT") {
-                        const opts = parseFrameOptions(row.querySelector(".enc-select-options")?.value || "");
-                        const rawCorrect = String(row.querySelector(".enc-select-correct")?.value || "").trim();
-                        const validCorrect = opts.some((opt) => opt.value === rawCorrect) ? rawCorrect : "";
-                        const canAutocorrect = opts.length >= 2 && !!validCorrect;
-                        item.inputType = "select";
-                        item.options = opts;
-                        item.reponseCorrecte = validCorrect;
-                        item.autocorrect = canAutocorrect;
-                        item.besoinCorrectionManuelle = !canAutocorrect;
-                    } else {
-                        item.inputType = "texte_exact";
-                        item.reponseCorrecte = [];
-                        item.autocorrect = false;
-                        item.besoinCorrectionManuelle = true;
-                    }
                     return item;
                 });
             },
             exportToStudentHTML(block, ctx) {
                 const rows = getActiveEncRows(block);
                 if (!rows.length) return "";
-                const mode = String(block.querySelector(".enc-mode")?.value || "TEXT").toUpperCase();
                 let html = `
                     <div class="question-block">
                         <span class="q-label">${ctx.qCounter}</span><span class="q-comp">${ctx.competence}</span><span class="q-points">${ctx.bareme} pts</span>
@@ -512,18 +513,10 @@
                     const subkey = row.dataset.subkey || normalizeFrameKey(lineLabel);
                     const subqid = row.dataset.subqid || `${ctx.qidBase}_${this.slug}_${subkey}`;
                     row.dataset.subqid = subqid;
-                    let cellHtml = `<textarea class="reponse-eleve answer-input" data-qid="${subqid}" rows="2" style="width:100%; min-height:54px;" placeholder="Votre réponse"></textarea>`;
-                    if (mode === "SELECT") {
-                        const opts = parseFrameOptions(row.querySelector(".enc-select-options")?.value || "");
-                        const optsHtml = [`<option value="">-- Sélectionner --</option>`]
-                            .concat(opts.map((opt) => `<option value="${opt.value}">${opt.label}</option>`))
-                            .join("");
-                        cellHtml = `<select class="reponse-eleve answer-select" data-qid="${subqid}">${optsHtml}</select>`;
-                    }
                     html += `
                         <tr>
                             <td>${lineLabel}</td>
-                            <td>${cellHtml}</td>
+                            <td><textarea class="reponse-eleve answer-input" data-qid="${subqid}" rows="2" style="width:100%; min-height:54px;" placeholder="Votre réponse"></textarea></td>
                         </tr>
                     `;
                 });
@@ -570,7 +563,7 @@
         countAsQuestion: false,
         exportToBlueprint() { return []; },
         exportToStudentHTML(block) {
-            const text = block.querySelector('.q-enonce')?.value || "";
+            const text = block.querySelector('.title-widget-input')?.value || block.querySelector('.q-enonce')?.value || "";
             return `<div class="document-box" style="background:#eef2ff;border-color:#a5b4fc;"><h4 style="margin:0;">${text}</h4></div>`;
         },
         importFromBlueprint() { return null; }
@@ -580,7 +573,7 @@
         countAsQuestion: false,
         exportToBlueprint() { return []; },
         exportToStudentHTML(block) {
-            const title = block.querySelector('.q-enonce')?.value || "Note";
+            const title = block.querySelector('.box-note-title')?.value || block.querySelector('.q-enonce')?.value || "Note";
             const content = (block.querySelector('.box-note-content')?.value || "").replace(/\n/g, "<br>");
             return `<div class="document-box" style="background:#fff7ed;border-color:#fdba74;"><h4>${title}</h4><p>${content}</p></div>`;
         },
@@ -593,22 +586,25 @@
             ctx.content.innerHTML = `
                 <div class="config-zone image-widget-editor" style="background:#f8fafc; border-color:#cbd5e1;">
                     <span class="config-label">Image seule (non export blueprint, nom simple => images/nom.ext)</span>
+                    <input type="text" class="image-title-input" placeholder="Titre affiché" style="width:100%; margin-bottom:8px;">
                     <input type="text" class="image-path-input" placeholder="ex: schema1.png ou images/schema1.png" oninput="updateImagePreview(this)" style="width:100%; margin-bottom:8px;">
                     <img class="image-preview" alt="Aperçu image" style="display:none; max-width:100%; border:1px solid #cbd5e1; border-radius:8px;">
                 </div>
             `;
+            const titleInput = ctx.content.querySelector(".image-title-input");
             const enonceField = ctx.block ? ctx.block.querySelector(".q-enonce") : null;
             if (enonceField && !enonceField.value.trim()) {
                 enonceField.value = "Illustration";
                 autoResize(enonceField);
             }
+            if (titleInput) titleInput.value = enonceField?.value?.trim() || "Illustration";
         },
         exportToBlueprint() { return []; },
         exportToStudentHTML(block, ctx) {
             const raw = block.querySelector(".image-path-input")?.value || "";
             const src = normalizeImagePath(raw);
             if (!src) return "";
-            const title = ctx.enoncePlain || "Illustration";
+            const title = block.querySelector('.image-title-input')?.value || ctx.enoncePlain || "Illustration";
             return `<div class="document-box"><h4>${title}</h4><img src="${src}" alt="${title}" style="max-width:100%; height:auto; border-radius:8px;"></div>`;
         },
         importFromBlueprint() { return null; }
@@ -631,7 +627,9 @@
     window.MasterWidgets.register("ITAMAMI", createEncWidgetDef("Compléter le tableau ITAMAMI", [
         { key: "individu", label: "INDIVIDU" },
         { key: "tache", label: "TACHE" },
-        { key: "activite", label: "ACTIVITE" }
+        { key: "activite", label: "ACTIVITE" },
+        { key: "materiel", label: "MATERIEL" },
+        { key: "milieu", label: "MILIEU" }
     ], "itamami"));
     // Alias legacy
     window.MasterWidgets.register("ENC_KQQOQCP", getWidgetDef("QQOQCP"));
@@ -659,6 +657,7 @@
 
     function countsAsQuestionType(type) {
         if (type === "DOC") return false;
+        if (["SEPARATOR", "TITLE", "BOX_NOTE", "IMAGE"].includes(type)) return false;
         return !isVisualWidgetType(type);
     }
 
@@ -747,20 +746,6 @@
         return getEncRows(block).filter((row) => row.dataset.enabled !== "0");
     }
 
-    function setEncMode(source, forcedMode = null) {
-        const block = source && source.classList && source.classList.contains("question-block")
-            ? source
-            : (source && typeof source.closest === "function" ? source.closest(".question-block") : null);
-        if (!block) return;
-        const modeEl = block.querySelector(".enc-mode");
-        const mode = String(forcedMode || modeEl?.value || "TEXT").toUpperCase();
-        if (modeEl) modeEl.value = mode;
-        block.dataset.encMode = mode;
-        block.querySelectorAll(".enc-select-config").forEach((el) => {
-            el.style.display = mode === "SELECT" ? "block" : "none";
-        });
-    }
-
     function splitPoints(total, count) {
         const c = Math.max(0, Number(count) || 0);
         if (c === 0) return [];
@@ -827,7 +812,7 @@
         const div = document.createElement('div');
         div.className = `question-block ${type === 'DOC' ? 'doc-block' : ''}`;
         div.dataset.type = type;
-        div.dataset.qid = createStableQid();
+        div.dataset.qid = countsAsQuestionType(type) ? createStableQid() : "";
         
         let headerHtml = '';
         
@@ -926,27 +911,17 @@
                     <td class="enc-label-cell">${lineDef.label}</td>
                     <td class="enc-answer-cell">
                         <textarea class="enc-expected auto-grow" rows="2" oninput="autoResize(this)" placeholder="Réponse attendue (optionnelle)..."></textarea>
-                        <div class="enc-select-config" style="display:none; margin-top:8px;">
-                            <textarea class="enc-select-options auto-grow" rows="1" oninput="autoResize(this)" placeholder="Options (séparées par ; ou retour ligne)"></textarea>
-                            <input class="enc-select-correct" type="text" placeholder="Réponse correcte (ex: opt1)" style="margin-top:6px;">
-                        </div>
                     </td>
-                    <td style="width:76px; text-align:center;"><span style="font-size:0.8em; color:#64748b;">fixe</span></td>
+                    <td style="width:76px; text-align:center;">
+                        <button class="enc-toggle-btn" type="button" onclick="toggleEncRow(this)" title="Désactiver cette ligne">×</button>
+                    </td>
                 </tr>
             `;
             }).join("");
 
             content.innerHTML = `
                 <div class="config-zone" style="background:linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%); border-color:#a5b4fc;">
-                    <div style="display:flex; gap:10px; align-items:center; justify-content:space-between; margin-bottom:10px;">
-                        <span class="config-label">🧩 Tableau encadré (${resolveFrameRows(def).length} lignes fixes)</span>
-                        <label style="font-size:0.85em; font-weight:700;">Mode:
-                            <select class="enc-mode" onchange="setEncMode(this)">
-                                <option value="TEXT">TEXTE</option>
-                                <option value="SELECT">LISTE DEROULANTE</option>
-                            </select>
-                        </label>
-                    </div>
+                    <span class="config-label">🧩 Tableau encadré (${resolveFrameRows(def).length} lignes fixes)</span>
                     <table class="enc-table" aria-label="Tableau encadré">
                         <thead>
                             <tr>
@@ -966,7 +941,7 @@
                 enonceField.value = def.title;
                 autoResize(enonceField);
             }
-            setEncMode(block, "TEXT");
+            getEncRows(block).forEach((row) => setEncRowEnabled(row, true));
         }
         else if (type === 'SEPARATOR') {
             content.innerHTML = `
@@ -980,29 +955,34 @@
             content.innerHTML = `
                 <div class="config-zone" style="background:#f8fafc; border-color:#cbd5e1;">
                     <span class="config-label">Titre intercalé (non exporté dans le blueprint)</span>
-                    <p style="font-weight:700; color:#334155;">Ce bloc sert uniquement de mise en forme.</p>
+                    <input type="text" class="title-widget-input" placeholder="Titre de section" style="width:100%;" oninput="const b=this.closest('.question-block'); const e=b?b.querySelector('.q-enonce'):null; if(e){e.value=this.value; autoResize(e);}">
                 </div>
             `;
             const block = content.closest(".question-block");
             const enonceField = block ? block.querySelector(".q-enonce") : null;
+            const titleInput = block ? block.querySelector(".title-widget-input") : null;
             if (enonceField && !enonceField.value.trim()) {
                 enonceField.value = "Titre de section";
                 autoResize(enonceField);
             }
+            if (titleInput) titleInput.value = enonceField?.value || "Titre de section";
         }
         else if (type === 'BOX_NOTE') {
             content.innerHTML = `
                 <div class="config-zone" style="background:#fff7ed; border-color:#fdba74;">
                     <span class="config-label">Encadré note/aide (non exporté dans le blueprint)</span>
+                    <input type="text" class="box-note-title" placeholder="Titre de la note" style="width:100%; margin-bottom:8px;" oninput="const b=this.closest('.question-block'); const e=b?b.querySelector('.q-enonce'):null; if(e){e.value=this.value; autoResize(e);}">
                     <textarea class="box-note-content auto-grow" rows="3" oninput="autoResize(this)" placeholder="Texte de note ou d'aide..."></textarea>
                 </div>
             `;
             const block = content.closest(".question-block");
             const enonceField = block ? block.querySelector(".q-enonce") : null;
+            const noteTitle = block ? block.querySelector(".box-note-title") : null;
             if (enonceField && !enonceField.value.trim()) {
                 enonceField.value = "Note";
                 autoResize(enonceField);
             }
+            if (noteTitle) noteTitle.value = enonceField?.value || "Note";
         }
         else if (isWidgetType(type) && typeof getWidgetDef(type).renderEditor === "function") {
             try {
@@ -1121,15 +1101,6 @@
                 }
                 if (points <= 0) {
                     issues.push(`❌ Question ${num} : barème encadré invalide (${points})`);
-                }
-                const mode = String(q.querySelector('.enc-mode')?.value || 'TEXT').toUpperCase();
-                if (mode === 'SELECT') {
-                    activeRows.forEach((row, ridx) => {
-                        const opts = parseFrameOptions(row.querySelector('.enc-select-options')?.value || '');
-                        const correct = String(row.querySelector('.enc-select-correct')?.value || '').trim();
-                        if (opts.length < 2) issues.push(`❌ Question ${num}, ligne ${ridx + 1} : liste déroulante avec moins de 2 options.`);
-                        if (!correct) issues.push(`❌ Question ${num}, ligne ${ridx + 1} : réponse correcte manquante (mode liste).`);
-                    });
                 }
             }
             
@@ -1596,6 +1567,7 @@
                     "NE JAMAIS modifier : id, qid, type, inputType, competence, bareme",
                     "GARDER tous les identifiants identiques",
                     "NE JAMAIS transformer une question vers un autre type",
+                    "Types autorisés : QCU, SELECT, VF, NUMBER, SHORT, QQOQCP, PAD, ITAMAMI",
                     "Niveau pédagogique : " + niveau,
                     "Utiliser le PDF cours fourni comme référence"
                 ],
@@ -1610,11 +1582,11 @@
                 ],
                 formats_reponses: {
                     QCU: "1 seule bonne réponse dans reponseCorrecte",
-                    QCM: "Plusieurs bonnes réponses possibles dans reponseCorrecte (tableau d'identifiants d'options)",
                     SELECT: "1 seule bonne réponse dans reponseCorrecte (id value d'option)",
                     VF: "Justifier dans reponseAttendue pourquoi vrai ou faux + référence cours",
                     SHORT: "Accepter plusieurs formulations séparées par ; dans reponseCorrecte",
-                    NUMBER: "Valeur numérique exacte + explication calcul dans reponseAttendue"
+                    NUMBER: "Valeur numérique exacte + explication calcul dans reponseAttendue",
+                    ENCADRES: "QQOQCP/PAD/ITAMAMI : sous-questions texte libre, correction manuelle"
                 },
                 final: "SUPPRIMER ce champ instructions du JSON final"
             },
@@ -1641,7 +1613,7 @@
             if (!isVisualWidgetType(type)) usedComps.add(competence);
 
             // Template selon type
-            if (type === 'QCU' || type === 'SELECT' || type === 'QCM') {
+            if (type === 'QCU' || type === 'SELECT') {
                 const optCount = block.querySelectorAll('.option-row').length || 4;
                 const emptyOptions = Array.from({length: optCount}, (_, i) => ({
                     value: `${qidBase}_opt${i+1}`,
@@ -1657,7 +1629,7 @@
                     inputType: type === 'SELECT' ? "select" : "checkbox",
                     autocorrect: true,
                     questionText: "[ÉNONCÉ À REMPLIR]",
-                    reponseCorrecte: type === 'QCM' ? ["[ID_OPTION_1]", "[ID_OPTION_2]"] : "[ID_OPTION_CORRECTE]",
+                    reponseCorrecte: "[ID_OPTION_CORRECTE]",
                     reponseAttendue: "[EXPLICATION DÉTAILLÉE À RÉDIGER]",
                     explication: "[EXPLICATION DÉTAILLÉE À RÉDIGER]",
                     options: emptyOptions
@@ -1702,29 +1674,24 @@
                 const explanation = block.querySelector('.q-explain')?.value?.trim() || "[EXPLICATION DÉTAILLÉE À RÉDIGER]";
                 const activeRows = getActiveEncRows(block);
                 if (activeRows.length === 0) return;
-                const mode = String(block.querySelector('.enc-mode')?.value || "TEXT").toUpperCase();
                 const rowPoints = splitPoints(bareme, Math.max(1, activeRows.length));
                 activeRows.forEach((row, idx) => {
                     const subqid = row.dataset.subqid || `${qidBase}_${(getWidgetDef(type)?.slug || normalizeFrameKey(type))}_${row.dataset.subkey || idx + 1}`;
                     row.dataset.subqid = subqid;
                     const lineLabel = row.dataset.label || `Ligne ${idx + 1}`;
-                    const opts = parseFrameOptions(row.querySelector(".enc-select-options")?.value || "");
-                    const correct = String(row.querySelector(".enc-select-correct")?.value || "").trim();
-                    const canAutocorrect = mode === "SELECT" && opts.length >= 2 && !!correct;
                     template.content.push({
                         type: "question",
                         qid: subqid,
                         label: `${qCounter}${String.fromCharCode(97 + idx)}`,
                         competence: competence,
                         bareme: rowPoints[idx] ?? 0,
-                        inputType: mode === "SELECT" ? "select" : "texte_exact",
-                        autocorrect: canAutocorrect,
-                        besoinCorrectionManuelle: !canAutocorrect,
+                        inputType: "texte_exact",
+                        autocorrect: false,
+                        besoinCorrectionManuelle: true,
                         questionText: "[ÉNONCÉ À REMPLIR] — " + lineLabel,
-                        reponseCorrecte: mode === "SELECT" ? "[ID_OPTION_CORRECTE]" : [],
+                        reponseCorrecte: [],
                         reponseAttendue: explanation,
-                        explication: explanation,
-                        options: mode === "SELECT" ? (opts.length ? opts : [{ value: "opt1", label: "[OPTION 1]" }, { value: "opt2", label: "[OPTION 2]" }]) : undefined
+                        explication: explanation
                     });
                 });
                 qCounter++;
@@ -1774,23 +1741,24 @@
                 item.correct = block.querySelector('input[value="vrai"]')?.checked ? 'vrai' : 'faux';
             } else if (type === 'SHORT' || type === 'NUMBER') {
                 item.validAnswers = block.querySelector('.valid-answers')?.value || "";
+            } else if (type === 'TITLE') {
+                item.titleText = block.querySelector('.title-widget-input')?.value || item.enonce || "";
             } else if (type === 'BOX_NOTE') {
+                item.noteTitle = block.querySelector('.box-note-title')?.value || item.enonce || "Note";
                 item.noteContent = block.querySelector('.box-note-content')?.value || "";
             } else if (type === 'IMAGE') {
+                item.imageTitle = block.querySelector('.image-title-input')?.value || item.enonce || "Illustration";
                 item.imagePath = block.querySelector('.image-path-input')?.value || "";
-            } else if (type === 'SEPARATOR' || type === 'TITLE') {
+            } else if (type === 'SEPARATOR') {
                 // Pas de données supplémentaires
             } else if (isEncType(type)) {
                 item.titreEncadre = item.enonce;
-                item.mode = String(block.querySelector('.enc-mode')?.value || 'TEXT').toUpperCase();
                 item.lignes = getEncRows(block).map((row) => ({
                     label: row.dataset.label || "",
                     subkey: row.dataset.subkey || "",
                     subqid: row.dataset.subqid || createStableQid(),
                     enabled: row.dataset.enabled !== "0",
-                    preview: row.querySelector('.enc-expected')?.value || "",
-                    selectOptions: row.querySelector('.enc-select-options')?.value || "",
-                    selectCorrect: row.querySelector('.enc-select-correct')?.value || ""
+                    preview: row.querySelector('.enc-expected')?.value || ""
                 }));
             }
 
@@ -1873,18 +1841,21 @@
                 if (fauxEl) fauxEl.checked = !isVrai;
             } else if (type === 'SHORT' || type === 'NUMBER') {
                 safeSetValue(block.querySelector('.valid-answers'), q.validAnswers || "");
+            } else if (type === 'TITLE') {
+                safeSetValue(block.querySelector('.title-widget-input'), q.titleText || q.enonce || "Titre de section");
             } else if (type === 'BOX_NOTE') {
+                safeSetValue(block.querySelector('.box-note-title'), q.noteTitle || q.enonce || "Note");
                 safeSetValue(block.querySelector('.box-note-content'), q.noteContent || "");
             } else if (type === 'IMAGE') {
+                safeSetValue(block.querySelector('.image-title-input'), q.imageTitle || q.enonce || "Illustration");
                 const input = block.querySelector('.image-path-input');
                 safeSetValue(input, q.imagePath || "");
                 if (input) updateImagePreview(input);
-            } else if (type === 'SEPARATOR' || type === 'TITLE') {
+            } else if (type === 'SEPARATOR') {
                 // Rien de spécifique
             } else if (isEncType(type)) {
                 const rows = getEncRows(block);
                 const savedRows = Array.isArray(q.lignes) ? q.lignes : [];
-                setEncMode(block, q.mode || "TEXT");
                 if (savedRows.length === 0) {
                     rows.forEach((row) => setEncRowEnabled(row, true));
                     return;
@@ -1897,8 +1868,6 @@
                     row.dataset.subkey = line.subkey || row.dataset.subkey || normalizeFrameKey(line.label);
                     setEncRowEnabled(row, line.enabled !== false);
                     safeSetValue(row.querySelector('.enc-expected'), line.preview || "");
-                    safeSetValue(row.querySelector('.enc-select-options'), line.selectOptions || "");
-                    safeSetValue(row.querySelector('.enc-select-correct'), line.selectCorrect || "");
                 });
             }
         });
