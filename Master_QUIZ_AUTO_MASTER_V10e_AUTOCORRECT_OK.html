@@ -610,26 +610,26 @@
         importFromBlueprint() { return null; }
     });
     window.MasterWidgets.register("QQOQCP", createEncWidgetDef("Compléter le tableau QQOQCP", [
-        { key: "qui", label: "QUI" },
-        { key: "quoi", label: "QUOI" },
-        { key: "ou", label: "OU" },
-        { key: "quand", label: "QUAND" },
-        { key: "comment", label: "COMMENT" },
-        { key: "pourquoi", label: "POURQUOI" }
+        { key: "qui", label: "Qui" },
+        { key: "quoi", label: "Quoi" },
+        { key: "ou", label: "Où" },
+        { key: "quand", label: "Quand" },
+        { key: "comment", label: "Comment" },
+        { key: "pourquoi", label: "Pourquoi" }
     ], "qqoqcp"));
     window.MasterWidgets.register("PAD", createEncWidgetDef("Compléter le tableau PAD", [
-        { key: "operateur", label: "OPERATEUR" },
-        { key: "danger", label: "DANGER" },
-        { key: "situation_dangereuse", label: "SITUATION_DANGEREUSE" },
-        { key: "evenement_declencheur", label: "EVENEMENT_DECLENCHEUR" },
-        { key: "dommage", label: "DOMMAGE" }
+        { key: "operateur", label: "Opérateur" },
+        { key: "danger", label: "Danger" },
+        { key: "situation_dangereuse", label: "Situation dangereuse" },
+        { key: "evenement_declencheur", label: "Événement déclencheur" },
+        { key: "dommage", label: "Dommage" }
     ], "pad"));
     window.MasterWidgets.register("ITAMAMI", createEncWidgetDef("Compléter le tableau ITAMAMI", [
-        { key: "individu", label: "INDIVIDU" },
-        { key: "tache", label: "TACHE" },
-        { key: "activite", label: "ACTIVITE" },
-        { key: "materiel", label: "MATERIEL" },
-        { key: "milieu", label: "MILIEU" }
+        { key: "individu", label: "Individu" },
+        { key: "tache", label: "Tâche" },
+        { key: "activite", label: "Activité" },
+        { key: "materiel", label: "Matériel" },
+        { key: "milieu", label: "Milieu" }
     ], "itamami"));
     // Alias legacy
     window.MasterWidgets.register("ENC_KQQOQCP", getWidgetDef("QQOQCP"));
@@ -863,25 +863,42 @@
 
     function addQuestionAfter(btn) {
         const block = btn.closest('.question-block');
-        addBlock('QCU', block);
+        const allowed = ['QCU', 'VF', 'SELECT', 'NUMBER', 'SHORT'];
+        const labels = {
+            QCU: "QCU",
+            VF: "Vrai/Faux",
+            SELECT: "Liste déroulante",
+            NUMBER: "Nombre",
+            SHORT: "Texte"
+        };
+        const typed = prompt(
+            "Type de question sous ce document:\n" +
+            "QCU (défaut), VF, SELECT, NUMBER, SHORT",
+            "QCU"
+        );
+        const wanted = String(typed || "QCU").trim().toUpperCase();
+        const chosen = allowed.includes(wanted) ? wanted : "QCU";
+        if (typed !== null && !allowed.includes(wanted)) {
+            showNotification(`Type non reconnu, QCU appliqué (types supportés: ${allowed.map((t) => labels[t]).join(", ")})`, "info");
+        }
+        addBlock(chosen, block);
     }
 
     function addBlock(type, insertAfterElem = null) {
         const content = createBlockSkeleton(type, insertAfterElem);
         const uid = Date.now();
 
-        if (type === 'QCU' || type === 'SELECT' || type === 'QCM') {
+        if (type === 'QCU' || type === 'SELECT') {
             const containerId = `opts_${uid}`;
-            const isQcm = type === "QCM";
             content.innerHTML = `
                 <div class="config-zone">
-                    <span class="config-label">📝 Options (${type === "SELECT" ? "Liste déroulante : cochez la bonne réponse" : (isQcm ? "QCM : cochez les bonnes réponses" : "QCU : cochez la bonne réponse")})</span>
+                    <span class="config-label">📝 Options (${type === "SELECT" ? "Liste déroulante : cochez la bonne réponse" : "QCU : cochez la bonne réponse"})</span>
                     <div id="${containerId}"></div>
-                    <button onclick="addOption('${containerId}', '${isQcm ? "multi" : "single"}')" style="margin-top:10px;font-size:0.85em;cursor:pointer;background:linear-gradient(135deg, #e9ecef, #dee2e6);border:none;padding:6px 12px;border-radius:6px;font-weight:bold;color:#495057;transition:all 0.2s;">+ Ajouter une option</button>
+                    <button onclick="addOption('${containerId}')" style="margin-top:10px;font-size:0.85em;cursor:pointer;background:linear-gradient(135deg, #e9ecef, #dee2e6);border:none;padding:6px 12px;border-radius:6px;font-weight:bold;color:#495057;transition:all 0.2s;">+ Ajouter une option</button>
                 </div>
             `;
-            addOption(containerId, isQcm ? "multi" : "single");
-            addOption(containerId, isQcm ? "multi" : "single");
+            addOption(containerId);
+            addOption(containerId);
         } 
         else if (type === 'VF') {
             content.innerHTML = `
@@ -1011,14 +1028,13 @@
         }
     }
 
-    function addOption(containerId, mode = "single") {
+    function addOption(containerId) {
         const div = document.createElement('div');
         div.className = 'option-row';
-        const isMulti = mode === "multi";
-        const inputType = isMulti ? 'checkbox' : 'radio';
+        const inputType = 'radio';
         const nameGroup = `grp_${containerId}`;
         div.innerHTML = `
-            <input type="${inputType}" ${isMulti ? '' : `name="${nameGroup}"`} class="correct-check" title="Est-ce la bonne réponse ?">
+            <input type="${inputType}" name="${nameGroup}" class="correct-check" title="Est-ce la bonne réponse ?">
             <textarea class="opt-text auto-grow" rows="1" oninput="autoResize(this)" placeholder="Réponse possible..."></textarea>
             <button onclick="this.parentElement.remove()" style="color:#e74c3c;border:none;background:none;cursor:pointer;font-weight:bold;margin-top:10px;font-size:1.2em;transition:all 0.2s;" onmouseover="this.style.color='#dc2626'; this.style.transform='scale(1.2)'" onmouseout="this.style.color='#e74c3c'; this.style.transform='scale(1)'">×</button>
         `;
@@ -1074,7 +1090,7 @@
             competences.add(comp);
             
             // Vérifications spécifiques par type
-            if (type === 'QCU' || type === 'SELECT' || type === 'QCM') {
+            if (type === 'QCU' || type === 'SELECT') {
                 const options = q.querySelectorAll('.opt-text');
                 const checked = q.querySelectorAll('.correct-check:checked');
                 
@@ -1086,7 +1102,6 @@
                 if (validOptions < 2) warnings.push(`⚠️ Question ${num} : moins de 2 options valides`);
                 if (checked.length === 0) issues.push(`❌ Question ${num} : aucune bonne réponse cochée`);
                 if ((type === 'QCU' || type === 'SELECT') && checked.length > 1) issues.push(`❌ Question ${num} : ${type} avec plusieurs bonnes réponses`);
-                if (type === 'QCM' && checked.length === 1) warnings.push(`⚠️ Question ${num} : QCM avec une seule bonne réponse`);
             }
             
             if (type === 'SHORT' || type === 'NUMBER') {
@@ -1370,15 +1385,15 @@
         }
     </style>
 </head>
-<body data-id-exercice="\${devoirId}">
+<body data-id-exercice="${devoirId}">
 <div class="container">
     <div class="header">
-        <h1>\${titre}</h1>
+        <h1>${titre}</h1>
         <div class="subtitle">Quiz Auto-Corrigé</div>
     </div>
     <div class="competences-box">
         <h3>Compétences évaluées</h3>
-        <ul>\${compList}</ul>
+        <ul>${compList}</ul>
     </div>
     <div class="body-content">
 
@@ -1390,7 +1405,7 @@
         </div>
     </div>
 
-    \${contentHTML}
+    ${contentHTML}
 
     <div class="submit-section">
         <button class="submit-btn" id="btn-envoyer" onclick="window.tenterEnvoi()">Envoyer ma copie 📤</button>
@@ -1515,7 +1530,7 @@
     };
 <\/script>
 
-\${embeddedBlueprintScript}
+${embeddedBlueprintScript}
 
 <script type="module" src="https://mapse.fr/annuaire.js"><\/script>
 <script type="module" src="https://mapse.fr/assets/pse-runner.js"><\/script>
@@ -1567,7 +1582,7 @@
                     "NE JAMAIS modifier : id, qid, type, inputType, competence, bareme",
                     "GARDER tous les identifiants identiques",
                     "NE JAMAIS transformer une question vers un autre type",
-                    "Types autorisés : QCU, SELECT, VF, NUMBER, SHORT, QQOQCP, PAD, ITAMAMI",
+                    "Types autorisés : QCU, SELECT, VF, NUMBER, SHORT, QQOQCP, PAD, ITAMAMI, DOC, IMAGE, TITLE, BOX_NOTE, SEPARATOR",
                     "Niveau pédagogique : " + niveau,
                     "Utiliser le PDF cours fourni comme référence"
                 ],
@@ -1653,20 +1668,21 @@
                 qCounter++;
             }
             else if (type === 'SHORT' || type === 'NUMBER') {
+                const isNum = type === 'NUMBER';
                 template.content.push({
                     type: "question",
                     qid: qidBase,
                     label: qCounter.toString(),
                     competence: competence,
                     bareme: bareme,
-                    inputType: type === 'NUMBER' ? "number" : "texte_exact",
-                    autocorrect: false,
-                    besoinCorrectionManuelle: true,
+                    inputType: isNum ? "number" : "texte_exact",
+                    autocorrect: isNum,
+                    besoinCorrectionManuelle: isNum ? undefined : true,
                     questionText: "[ÉNONCÉ À REMPLIR]",
-                    reponseCorrecte: type === 'NUMBER' ? "[NOMBRE]" : ["[RÉPONSE1]", "[RÉPONSE2]"],
+                    reponseCorrecte: isNum ? "[NOMBRE]" : ["[RÉPONSE1]", "[RÉPONSE2]"],
                     reponseAttendue: "[EXPLICATION AVEC CALCUL/JUSTIFICATION]",
                     explication: "[EXPLICATION DÉTAILLÉE À RÉDIGER]",
-                    tolerance: type === 'NUMBER' ? 0 : undefined
+                    tolerance: isNum ? 0 : undefined
                 });
                 qCounter++;
             }
@@ -1729,7 +1745,7 @@
             item.points = parseFloat(block.querySelector('.q-points')?.value) || 0;
             item.explanation = block.querySelector('.q-explain')?.value || "";
 
-            if (type === 'QCU' || type === 'SELECT' || type === 'QCM') {
+            if (type === 'QCU' || type === 'SELECT') {
                 item.options = [];
                 block.querySelectorAll('.option-row').forEach((row) => {
                     item.options.push({
@@ -1818,13 +1834,13 @@
             safeSetValue(block.querySelector('.q-points'), q.points ?? 0);
             safeSetValue(block.querySelector('.q-explain'), q.explanation || "");
 
-            if (type === 'QCU' || type === 'SELECT' || type === 'QCM') {
+            if (type === 'QCU' || type === 'SELECT') {
                 const container = block.querySelector('div[id^="opts_"]');
                 if (container) {
                     container.innerHTML = '';
                     const opts = Array.isArray(q.options) ? q.options : [];
                     (opts.length ? opts : [{ text: "", correct: false }, { text: "", correct: false }]).forEach((opt) => {
-                        addOption(container.id, type === "QCM" ? "multi" : "single");
+                        addOption(container.id);
                         const rows = container.querySelectorAll('.option-row');
                         const row = rows[rows.length - 1];
                         safeSetValue(row.querySelector('.opt-text'), opt.text || "");
@@ -1917,6 +1933,10 @@
 
         const isDraftJSON = Array.isArray(data.questions) && data.meta && data.meta.version === "master-quiz-auto";
         if (isDraftJSON) {
+            const hasDraftQcm = data.questions.some((q) => String(q?.type || "").toUpperCase() === "QCM");
+            if (hasDraftQcm) {
+                throw new Error("Import refusé : le type QCM n'est plus supporté par ce master.");
+            }
             restoreDraftJSON(data);
             showNotification("✅ Draft importé avec succès", "success");
             return;
@@ -1924,6 +1944,22 @@
 
         if (!data.content || !Array.isArray(data.content)) {
             throw new Error("Format JSON invalide: content[] manquant.");
+        }
+
+        const qcmErrors = [];
+        data.content.forEach((item, idx) => {
+            const rawType = String(item?.type || "").toUpperCase();
+            const inType = String(item?.inputType || "").toLowerCase();
+            const rawCorrect = item?.reponseCorrecte ?? item?.correct ?? item?.answer;
+            const asArray = Array.isArray(rawCorrect)
+                ? rawCorrect.filter(Boolean)
+                : String(rawCorrect || "").split(";").map((s) => s.trim()).filter(Boolean);
+            if (rawType === "QCM" || (inType === "checkbox" && asArray.length > 1)) {
+                qcmErrors.push(`item ${idx + 1}${item?.qid ? ` (${item.qid})` : ""}`);
+            }
+        });
+        if (qcmErrors.length) {
+            throw new Error(`Import refusé : QCM non supporté (${qcmErrors.join(", ")}). Utilisez QCU ou Liste déroulante.`);
         }
 
         document.getElementById("quiz-content").innerHTML = "";
@@ -2064,7 +2100,7 @@
         singles.forEach(({ item, idx }) => {
             const inType = (item.inputType || "").toLowerCase();
             if (typeof item.autocorrect === "undefined") {
-                if (inType === "select" || inType === "checkbox" || inType === "vrai_faux") {
+                if (inType === "select" || inType === "checkbox" || inType === "vrai_faux" || inType === "number") {
                     item.autocorrect = true;
                 } else {
                     item.autocorrect = false;
@@ -2077,7 +2113,10 @@
                 const asArray = Array.isArray(rawCorrect)
                     ? rawCorrect.filter(Boolean)
                     : String(rawCorrect || "").split(";").map((s) => s.trim()).filter(Boolean);
-                type = asArray.length > 1 ? "QCM" : "QCU";
+                if (asArray.length > 1 || String(item.type || "").toUpperCase() === "QCM") {
+                    throw new Error(`Import refusé : QCM non supporté (item ${idx + 1}${item.qid ? `, qid ${item.qid}` : ""}).`);
+                }
+                type = "QCU";
             }
             else if (inType === "select") type = "SELECT";
             else if (inType === "vrai_faux") type = "VF";
@@ -2093,13 +2132,13 @@
             safeSetValue(block.querySelector('.q-points'), parseFloat(item.bareme || item.points || 1) || 1);
             safeSetValue(block.querySelector('.q-enonce'), getFlexibleText(item, ['questionText', 'question', 'text', 'enonce', 'titre']));
 
-            if (type === "QCU" || type === "SELECT" || type === "QCM") {
+            if (type === "QCU" || type === "SELECT") {
                 const containerId = `auto_${Date.now()}_${idx}`;
                 contentDiv.innerHTML = `
                     <div class="config-zone">
                         <span class="config-label">📝 Options importées (${type === "SELECT" ? "liste déroulante" : type})</span>
                         <div id="${containerId}"></div>
-                        <button onclick="addOption('${containerId}', '${type === "QCM" ? "multi" : "single"}')" style="margin-top:10px;font-size:0.85em;cursor:pointer;background:#eee;border:none;padding:5px 10px;border-radius:4px;">+ Ajouter option</button>
+                        <button onclick="addOption('${containerId}')" style="margin-top:10px;font-size:0.85em;cursor:pointer;background:#eee;border:none;padding:5px 10px;border-radius:4px;">+ Ajouter option</button>
                     </div>
                 `;
 
@@ -2112,11 +2151,11 @@
                 );
 
                 if (opts.length === 0) {
-                    addOption(containerId, type === "QCM" ? "multi" : "single");
-                    addOption(containerId, type === "QCM" ? "multi" : "single");
+                    addOption(containerId);
+                    addOption(containerId);
                 } else {
                     opts.forEach((opt) => {
-                        addOption(containerId, type === "QCM" ? "multi" : "single");
+                        addOption(containerId);
                         const rows = document.getElementById(containerId).querySelectorAll('.option-row');
                         const row = rows[rows.length - 1];
                         const optValue = String(opt?.value ?? opt?.id ?? "");
@@ -2314,17 +2353,6 @@
                             errors.push(`${answerType} (${qid}) : name radio invalide (${radio.getAttribute("name") || "vide"}).`);
                         }
                     });
-                } else if (answerType === "QCM") {
-                    const checks = Array.from(root.querySelectorAll(`input[type="checkbox"].reponse-eleve[data-qid="${qid}"]`));
-                    if (checks.length < 2) {
-                        errors.push(`QCM (${qid}) : checkboxes manquantes côté élève.`);
-                        return;
-                    }
-                    checks.forEach((chk) => {
-                        if (chk.getAttribute("name") !== qid) {
-                            errors.push(`QCM (${qid}) : name checkbox invalide (${chk.getAttribute("name") || "vide"}).`);
-                        }
-                    });
                 } else if (answerType === "SELECT") {
                     const selects = root.querySelectorAll(`select.reponse-eleve[data-qid="${qid}"]`);
                     if (selects.length !== 1) {
@@ -2450,7 +2478,6 @@
                     if (trackExportQid(item.qid, `Widget ${type}`)) {
                         const inType = String(item.inputType || "").toLowerCase();
                         const answerType = inType === "select" ? "SELECT"
-                            : (inType === "checkbox" && Array.isArray(item.reponseCorrecte)) ? "QCM"
                             : (inType === "checkbox") ? "QCU"
                             : (inType === "vrai_faux") ? "VF"
                             : "OPEN";
@@ -2464,12 +2491,10 @@
                 return;
             }
 
-            if (type === 'QCU' || type === 'SELECT' || type === 'QCM') {
+            if (type === 'QCU' || type === 'SELECT') {
                 let options = [];
                 let correctVal = null;
-                const correctVals = [];
                 let correctText = "";
-                const isQcm = type === "QCM";
 
                 block.querySelectorAll('.option-row').forEach((row, idx) => {
                     const txt = row.querySelector('.opt-text').value.trim();
@@ -2479,7 +2504,6 @@
                     if(txt) {
                         options.push({ value: val, label: txt });
                         if(isCorrect) {
-                            if (isQcm) correctVals.push(val);
                             if (correctVal === null) {
                                 correctVal = val;
                                 correctText = txt;
@@ -2501,12 +2525,12 @@
                     inputType: type === "SELECT" ? "select" : "checkbox",
                     autocorrect: true,
                     questionText: enoncePlain,
-                    reponseCorrecte: isQcm ? correctVals : correctVal,
+                    reponseCorrecte: correctVal,
                     reponseAttendue: finalExplanation,
                     options: options
                 });
                 trackExportQid(qidBase, type);
-                expectedAnswerBindings.push({ qid: qidBase, answerType: type === "SELECT" ? "SELECT" : (isQcm ? "QCM" : "QCU") });
+                expectedAnswerBindings.push({ qid: qidBase, answerType: type === "SELECT" ? "SELECT" : "QCU" });
 
                 if (type === "SELECT") {
                     const optsHtml = `<option value="">-- Sélectionner --</option>` + options.map((opt) => `<option value="${opt.value}">${opt.label}</option>`).join("");
@@ -2525,8 +2549,7 @@
                             <div class="checkbox-group">
                     `;
                     options.forEach(opt => {
-                        const inputType = isQcm ? "checkbox" : "radio";
-                        studentHtmlQuestions += `<label><input type="${inputType}" name="${qidBase}" value="${opt.value}" class="reponse-eleve" data-qid="${qidBase}"> ${opt.label}</label>`;
+                        studentHtmlQuestions += `<label><input type="radio" name="${qidBase}" value="${opt.value}" class="reponse-eleve" data-qid="${qidBase}"> ${opt.label}</label>`;
                     });
                     studentHtmlQuestions += `</div></div>`;
                 }
@@ -2565,7 +2588,7 @@
                 const rawVal = block.querySelector('.valid-answers').value;
                 const accepted = rawVal.split(';').map(s => s.trim()).filter(s => s);
                 const isNum = type === 'NUMBER';
-                const shouldAutocorrect = false;
+                const shouldAutocorrect = isNum;
 
                 blueprint.content.push({
                     type: "question",
@@ -2667,6 +2690,10 @@
         blueprint.items = blueprint.content;
 
         const finalStudentHTML = generateStudentTemplate(titre, devoirId, studentHtmlQuestions, blueprint.competences, blueprint);
+        if (finalStudentHTML.includes("${")) {
+            alert("Export cassé : template non rendu");
+            return;
+        }
 
         downloadFile(JSON.stringify(blueprint, null, 4), `${devoirId}_blueprint.json`, 'application/json');
         showNotification(`📄 Blueprint téléchargé ! Fichier élève dans 2 secondes...`, 'info');
