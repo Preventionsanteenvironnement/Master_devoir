@@ -467,6 +467,7 @@
 
 <div class="tools-panel">
     <button class="btn-tool btn-qcm" onclick="addBlock('QCU')">🔘 QCU</button>
+    <button class="btn-tool btn-qcm" onclick="addBlock('QCM')">☑️ QCM</button>
     <button class="btn-tool btn-vf" onclick="addBlock('VF')">✅ Vrai/Faux</button>
     <button class="btn-tool btn-text" onclick="addBlock('NUMBER')">🔢 Nombre</button>
     <button class="btn-tool btn-text" onclick="addBlock('SHORT')">✍️ Texte</button>
@@ -494,7 +495,7 @@
 <script>
     let qCount = 0;
     const ALLOWED_TYPES = new Set([
-        "QCU", "VF", "NUMBER", "SHORT", "SELECT",
+        "QCU", "QCM", "VF", "NUMBER", "SHORT", "SELECT",
         "QQOQCP", "ITAMAMI", "PAD",
         "DOC", "DOCGROUP", "IMAGE", "TITLE", "BOX_NOTE", "SEPARATOR",
         // Legacy aliases still accepted for import compatibility
@@ -600,7 +601,9 @@
                         besoinCorrectionManuelle: true,
                         questionText: `${ctx.enoncePlain} — ${lineLabel}`,
                         reponseCorrecte: [],
-                        reponseAttendue: explanation
+                        reponseAttendue: explanation,
+                        explication: explanation,
+                        reponseEleve: ""
                     };
                     return item;
                 });
@@ -996,7 +999,7 @@
         const normalized = (wanted === "TEXTE" || wanted === "TEXTE_LIBRE") ? "SHORT" : wanted;
         const chosen = allowed.includes(normalized) ? normalized : "SHORT";
         if (typed !== null && normalized === "QCM") {
-            alert("QCM n'est pas supporté. Utilisez QCU ou Liste déroulante.");
+            alert("QCM n'est pas proposé dans ce menu. Utilisez QCU ou Liste déroulante ici.");
         } else if (typed !== null && !allowed.includes(normalized)) {
             showNotification(`Type non reconnu, Texte appliqué (types supportés: ${allowed.map((t) => labels[t]).join(", ")})`, "info");
         }
@@ -1012,7 +1015,7 @@
         if (typed === null) return null;
         const wanted = String(typed || "QCU").trim().toUpperCase();
         if (wanted === "QCM") {
-            alert("QCM n'est pas supporté. Utilisez QCU ou Liste déroulante.");
+            alert("QCM n'est pas proposé dans les questions liées du DocGroup. Utilisez QCU, VF, SELECT, NUMBER, SHORT, ITAMAMI, PAD ou QQOQCP.");
             return null;
         }
         if (!allowed.includes(wanted)) {
@@ -1040,10 +1043,6 @@
     }
 
     function addBlock(type, insertAfterElem = null, parentContainer = null, parentDocGroupId = "") {
-        if (String(type || "").toUpperCase() === "QCM") {
-            alert("QCM non supporté. Utilisez QCU ou Liste déroulante.");
-            return;
-        }
         if (!ALLOWED_TYPES.has(type)) {
             alert(`Type non supporté: ${type}`);
             return;
@@ -1056,17 +1055,18 @@
             blockRoot.classList.add("docgroup-linked");
         }
 
-        if (type === 'QCU' || type === 'SELECT') {
+        if (type === 'QCU' || type === 'SELECT' || type === 'QCM') {
             const containerId = `opts_${uid}`;
+            const isQcm = type === 'QCM';
             content.innerHTML = `
                 <div class="config-zone">
-                    <span class="config-label">📝 Options (${type === "SELECT" ? "Liste déroulante : cochez la bonne réponse" : "QCU : cochez la bonne réponse"})</span>
+                    <span class="config-label">📝 Options (${type === "SELECT" ? "Liste déroulante : cochez la bonne réponse" : (isQcm ? "QCM : cochez les bonnes réponses" : "QCU : cochez la bonne réponse")})</span>
                     <div id="${containerId}"></div>
-                    <button onclick="addOption('${containerId}')" style="margin-top:10px;font-size:0.85em;cursor:pointer;background:linear-gradient(135deg, #e9ecef, #dee2e6);border:none;padding:6px 12px;border-radius:6px;font-weight:bold;color:#495057;transition:all 0.2s;">+ Ajouter une option</button>
+                    <button onclick="addOption('${containerId}', '${isQcm ? "multi" : "single"}')" style="margin-top:10px;font-size:0.85em;cursor:pointer;background:linear-gradient(135deg, #e9ecef, #dee2e6);border:none;padding:6px 12px;border-radius:6px;font-weight:bold;color:#495057;transition:all 0.2s;">+ Ajouter une option</button>
                 </div>
             `;
-            addOption(containerId);
-            addOption(containerId);
+            addOption(containerId, isQcm ? "multi" : "single");
+            addOption(containerId, isQcm ? "multi" : "single");
         } 
         else if (type === 'VF') {
             content.innerHTML = `
@@ -1217,13 +1217,14 @@
         }
     }
 
-    function addOption(containerId) {
+    function addOption(containerId, mode = "single") {
         const div = document.createElement('div');
         div.className = 'option-row';
-        const inputType = 'radio';
+        const isMulti = mode === "multi";
+        const inputType = isMulti ? 'checkbox' : 'radio';
         const nameGroup = `grp_${containerId}`;
         div.innerHTML = `
-            <input type="${inputType}" name="${nameGroup}" class="correct-check" title="Est-ce la bonne réponse ?">
+            <input type="${inputType}" ${isMulti ? '' : `name="${nameGroup}"`} class="correct-check" title="Est-ce la bonne réponse ?">
             <textarea class="opt-text auto-grow" rows="1" oninput="autoResize(this)" placeholder="Réponse possible..."></textarea>
             <button onclick="this.parentElement.remove()" style="color:#e74c3c;border:none;background:none;cursor:pointer;font-weight:bold;margin-top:10px;font-size:1.2em;transition:all 0.2s;" onmouseover="this.style.color='#dc2626'; this.style.transform='scale(1.2)'" onmouseout="this.style.color='#e74c3c'; this.style.transform='scale(1)'">×</button>
         `;
@@ -1279,7 +1280,7 @@
             competences.add(comp);
             
             // Vérifications spécifiques par type
-            if (type === 'QCU' || type === 'SELECT') {
+            if (type === 'QCU' || type === 'SELECT' || type === 'QCM') {
                 const options = q.querySelectorAll('.opt-text');
                 const checked = q.querySelectorAll('.correct-check:checked');
                 
@@ -1288,9 +1289,9 @@
                     if (opt.value.trim()) validOptions++;
                 });
                 
-                if (validOptions < 2) warnings.push(`⚠️ Question ${num} : moins de 2 options valides`);
-                if (checked.length === 0) issues.push(`❌ Question ${num} : aucune bonne réponse cochée`);
-                if ((type === 'QCU' || type === 'SELECT') && checked.length > 1) issues.push(`❌ Question ${num} : ${type} avec plusieurs bonnes réponses`);
+                if (validOptions < 2) issues.push(`❌ Question ${num} (${q.dataset.qid || "qid_manquant"}) : ${type} doit avoir au moins 2 options non vides`);
+                if (checked.length === 0) issues.push(`❌ Question ${num} (${q.dataset.qid || "qid_manquant"}) : aucune bonne réponse cochée`);
+                if ((type === 'QCU' || type === 'SELECT') && checked.length > 1) issues.push(`❌ Question ${num} (${q.dataset.qid || "qid_manquant"}) : ${type} doit avoir exactement 1 bonne réponse`);
             }
             
             if (type === 'SHORT' || type === 'NUMBER') {
@@ -1336,7 +1337,7 @@
                     if (!t) errors.push("DocGroup : renseigner 'Titre du document à inventer'");
                     if (!c) errors.push("DocGroup : renseigner 'Contenu du document à rédiger'");
                 }
-                if (["SEPARATOR", "TITLE", "BOX_NOTE", "IMAGE", "DOC"].includes(type) && countsAsQuestionType(type)) {
+                if (["SEPARATOR", "TITLE", "BOX_NOTE", "IMAGE", "DOC", "DOCGROUP"].includes(type) && countsAsQuestionType(type)) {
                     errors.push(`Bloc décoratif compté comme question: ${type}`);
                 }
                 return;
@@ -1347,8 +1348,16 @@
                 const rows = Array.from(block.querySelectorAll('.option-row'));
                 const valid = rows.filter((row) => String(row.querySelector('.opt-text')?.value || "").trim());
                 const checked = rows.filter((row) => row.querySelector('.correct-check')?.checked && String(row.querySelector('.opt-text')?.value || "").trim());
-                if (valid.length < 2) errors.push(`QCU : au moins 2 options non vides requises (question ${qIdx})`);
-                if (checked.length !== 1) errors.push(`QCU : coche 1 bonne réponse (question ${qIdx})`);
+                if (valid.length < 2) errors.push(`QCU numéro ${qIdx} (${block.dataset.qid || "qid_manquant"}) doit avoir au moins 2 options non vides`);
+                if (checked.length !== 1) errors.push(`QCU numéro ${qIdx} (${block.dataset.qid || "qid_manquant"}) doit avoir exactement 1 bonne réponse`);
+            }
+
+            if (type === "QCM") {
+                const rows = Array.from(block.querySelectorAll('.option-row'));
+                const valid = rows.filter((row) => String(row.querySelector('.opt-text')?.value || "").trim());
+                const checked = rows.filter((row) => row.querySelector('.correct-check')?.checked && String(row.querySelector('.opt-text')?.value || "").trim());
+                if (valid.length < 2) errors.push(`QCM numéro ${qIdx} (${block.dataset.qid || "qid_manquant"}) doit avoir au moins 2 options non vides`);
+                if (checked.length < 1) errors.push(`QCM numéro ${qIdx} (${block.dataset.qid || "qid_manquant"}) doit avoir au moins 1 bonne réponse`);
             }
 
             if (type === "SELECT") {
@@ -1844,8 +1853,7 @@ ${embeddedBlueprintScript}
                     "NE JAMAIS modifier : id, qid, type, inputType, competence, bareme",
                     "GARDER tous les identifiants identiques",
                     "NE JAMAIS transformer une question vers un autre type",
-                    "Types autorisés : QCU, SELECT, VF, NUMBER, SHORT, QQOQCP, PAD, ITAMAMI, DOC, DOCGROUP, IMAGE, TITLE, BOX_NOTE, SEPARATOR",
-                    "QCM interdit: si plusieurs bonnes réponses possibles, transformer en SELECT à réponse unique ou en plusieurs QCU",
+                    "Types autorisés : QCU, QCM, SELECT, VF, NUMBER, SHORT, QQOQCP, PAD, ITAMAMI, DOC, DOCGROUP, IMAGE, TITLE, BOX_NOTE, SEPARATOR",
                     "Niveau pédagogique : " + niveau,
                     "Utiliser le PDF cours fourni comme référence"
                 ],
@@ -1860,6 +1868,7 @@ ${embeddedBlueprintScript}
                 ],
                 formats_reponses: {
                     QCU: "1 seule bonne réponse dans reponseCorrecte",
+                    QCM: "Plusieurs bonnes réponses possibles dans reponseCorrecte (liste d'identifiants d'options)",
                     SELECT: "1 seule bonne réponse dans reponseCorrecte (id value d'option)",
                     VF: "Justifier dans reponseAttendue pourquoi vrai ou faux + référence cours",
                     SHORT: "Accepter plusieurs formulations séparées par ; dans reponseCorrecte",
@@ -1900,9 +1909,9 @@ ${embeddedBlueprintScript}
             if (!isVisualWidgetType(type)) usedComps.add(competence);
 
             // Template selon type
-            if (type === 'QCU' || type === 'SELECT') {
+            if (type === 'QCU' || type === 'SELECT' || type === 'QCM') {
                 const baseCount = block.querySelectorAll('.option-row').length || 4;
-                const optCount = type === "QCU" ? Math.max(3, baseCount) : Math.max(2, baseCount);
+                const optCount = type === "SELECT" ? Math.max(2, baseCount) : Math.max(3, baseCount);
                 const emptyOptions = Array.from({length: optCount}, (_, i) => ({
                     value: `${qidBase}_opt${i+1}`,
                     label: `[OPTION ${i+1}]`
@@ -1916,8 +1925,11 @@ ${embeddedBlueprintScript}
                     bareme: bareme,
                     inputType: type === 'SELECT' ? "select" : "checkbox",
                     autocorrect: true,
+                    besoinCorrectionManuelle: false,
                     questionText: "[ÉNONCÉ À REMPLIR]",
-                    reponseCorrecte: "[ID_OPTION_CORRECTE]",
+                    reponseCorrecte: type === 'QCM' ? ["[ID_OPTION_1]", "[ID_OPTION_2]"] : "[ID_OPTION_CORRECTE]",
+                    reponseEleve: type === 'QCM' ? [] : "",
+                    correctionMode: type === 'QCM' ? "set_exact" : "single_exact",
                     reponseAttendue: "[EXPLICATION DÉTAILLÉE À RÉDIGER]",
                     explication: "[EXPLICATION DÉTAILLÉE À RÉDIGER]",
                     options: emptyOptions
@@ -2028,7 +2040,7 @@ ${embeddedBlueprintScript}
             item.points = parseFloat(block.querySelector('.q-points')?.value) || 0;
             item.explanation = block.querySelector('.q-explain')?.value || "";
 
-            if (type === 'QCU' || type === 'SELECT') {
+            if (type === 'QCU' || type === 'SELECT' || type === 'QCM') {
                 item.options = [];
                 block.querySelectorAll('.option-row').forEach((row) => {
                     item.options.push({
@@ -2137,13 +2149,13 @@ ${embeddedBlueprintScript}
             safeSetValue(block.querySelector('.q-points'), q.points ?? 0);
             safeSetValue(block.querySelector('.q-explain'), q.explanation || "");
 
-            if (type === 'QCU' || type === 'SELECT') {
+            if (type === 'QCU' || type === 'SELECT' || type === 'QCM') {
                 const container = block.querySelector('div[id^="opts_"]');
                 if (container) {
                     container.innerHTML = '';
                     const opts = Array.isArray(q.options) ? q.options : [];
                     (opts.length ? opts : [{ text: "", correct: false }, { text: "", correct: false }]).forEach((opt) => {
-                        addOption(container.id);
+                        addOption(container.id, type === "QCM" ? "multi" : "single");
                         const rows = container.querySelectorAll('.option-row');
                         const row = rows[rows.length - 1];
                         safeSetValue(row.querySelector('.opt-text'), opt.text || "");
@@ -2236,10 +2248,6 @@ ${embeddedBlueprintScript}
 
         const isDraftJSON = Array.isArray(data.questions) && data.meta && data.meta.version === "master-quiz-auto";
         if (isDraftJSON) {
-            const hasDraftQcm = data.questions.some((q) => String(q?.type || "").toUpperCase() === "QCM");
-            if (hasDraftQcm) {
-                throw new Error("Import refusé : le type QCM n'est plus supporté par ce master.");
-            }
             const badDraftTypes = data.questions
                 .map((q, idx) => ({ type: String(q?.type || ""), idx }))
                 .filter((x) => x.type && !ALLOWED_TYPES.has(x.type));
@@ -2253,29 +2261,6 @@ ${embeddedBlueprintScript}
 
         if (!data.content || !Array.isArray(data.content)) {
             throw new Error("Format JSON invalide: content[] manquant.");
-        }
-
-        const badBlueprintTypes = data.content
-            .map((item, idx) => ({ type: String(item?.type || ""), idx }))
-            .filter((x) => x.type && x.type.toUpperCase() === "QCM");
-        if (badBlueprintTypes.length) {
-            throw new Error(`Import refusé : QCM non supporté (${badBlueprintTypes.map((x) => `item ${x.idx + 1}`).join(", ")}). Utilisez QCU ou Liste déroulante.`);
-        }
-
-        const qcmErrors = [];
-        data.content.forEach((item, idx) => {
-            const rawType = String(item?.type || "").toUpperCase();
-            const inType = String(item?.inputType || "").toLowerCase();
-            const rawCorrect = item?.reponseCorrecte ?? item?.correct ?? item?.answer;
-            const asArray = Array.isArray(rawCorrect)
-                ? rawCorrect.filter(Boolean)
-                : String(rawCorrect || "").split(";").map((s) => s.trim()).filter(Boolean);
-            if (rawType === "QCM" || (inType === "checkbox" && asArray.length > 1)) {
-                qcmErrors.push(`item ${idx + 1}${item?.qid ? ` (${item.qid})` : ""}`);
-            }
-        });
-        if (qcmErrors.length) {
-            throw new Error(`Import refusé : QCM non supporté (${qcmErrors.join(", ")}). Utilisez QCU ou Liste déroulante.`);
         }
 
         document.getElementById("quiz-content").innerHTML = "";
@@ -2441,10 +2426,7 @@ ${embeddedBlueprintScript}
                 const asArray = Array.isArray(rawCorrect)
                     ? rawCorrect.filter(Boolean)
                     : String(rawCorrect || "").split(";").map((s) => s.trim()).filter(Boolean);
-                if (asArray.length > 1 || String(item.type || "").toUpperCase() === "QCM") {
-                    throw new Error(`Import refusé : QCM non supporté (item ${idx + 1}${item.qid ? `, qid ${item.qid}` : ""}).`);
-                }
-                type = "QCU";
+                type = (asArray.length > 1 || String(item.type || "").toUpperCase() === "QCM") ? "QCM" : "QCU";
             }
             else if (inType === "select") type = "SELECT";
             else if (inType === "vrai_faux") type = "VF";
@@ -2460,13 +2442,13 @@ ${embeddedBlueprintScript}
             safeSetValue(block.querySelector('.q-points'), parseFloat(item.bareme || item.points || 1) || 1);
             safeSetValue(block.querySelector('.q-enonce'), getFlexibleText(item, ['questionText', 'question', 'text', 'enonce', 'titre']));
 
-            if (type === "QCU" || type === "SELECT") {
+            if (type === "QCU" || type === "SELECT" || type === "QCM") {
                 const containerId = `auto_${Date.now()}_${idx}`;
                 contentDiv.innerHTML = `
                     <div class="config-zone">
                         <span class="config-label">📝 Options importées (${type === "SELECT" ? "liste déroulante" : type})</span>
                         <div id="${containerId}"></div>
-                        <button onclick="addOption('${containerId}')" style="margin-top:10px;font-size:0.85em;cursor:pointer;background:#eee;border:none;padding:5px 10px;border-radius:4px;">+ Ajouter option</button>
+                        <button onclick="addOption('${containerId}', '${type === "QCM" ? "multi" : "single"}')" style="margin-top:10px;font-size:0.85em;cursor:pointer;background:#eee;border:none;padding:5px 10px;border-radius:4px;">+ Ajouter option</button>
                     </div>
                 `;
 
@@ -2479,11 +2461,11 @@ ${embeddedBlueprintScript}
                 );
 
                 if (opts.length === 0) {
-                    addOption(containerId);
-                    addOption(containerId);
+                    addOption(containerId, type === "QCM" ? "multi" : "single");
+                    addOption(containerId, type === "QCM" ? "multi" : "single");
                 } else {
                     opts.forEach((opt) => {
-                        addOption(containerId);
+                        addOption(containerId, type === "QCM" ? "multi" : "single");
                         const rows = document.getElementById(containerId).querySelectorAll('.option-row');
                         const row = rows[rows.length - 1];
                         const optValue = String(opt?.value ?? opt?.id ?? "");
@@ -2685,6 +2667,17 @@ ${embeddedBlueprintScript}
                             errors.push(`${answerType} (${qid}) : name radio invalide (${radio.getAttribute("name") || "vide"}).`);
                         }
                     });
+                } else if (answerType === "QCM") {
+                    const checks = Array.from(root.querySelectorAll(`input[type="checkbox"].reponse-eleve[data-qid="${qid}"]`));
+                    if (checks.length < 2) {
+                        errors.push(`QCM (${qid}) : au moins 2 checkbox attendues côté élève.`);
+                        return;
+                    }
+                    checks.forEach((chk) => {
+                        if (chk.getAttribute("name") !== qid) {
+                            errors.push(`QCM (${qid}) : name checkbox invalide (${chk.getAttribute("name") || "vide"}).`);
+                        }
+                    });
                 } else if (answerType === "SELECT") {
                     const selects = root.querySelectorAll(`select.reponse-eleve[data-qid="${qid}"]`);
                     if (selects.length !== 1) {
@@ -2834,6 +2827,7 @@ ${embeddedBlueprintScript}
                     if (trackExportQid(item.qid, `Widget ${type}`)) {
                         const inType = String(item.inputType || "").toLowerCase();
                         const answerType = inType === "select" ? "SELECT"
+                            : (inType === "checkbox" && Array.isArray(item.reponseCorrecte)) ? "QCM"
                             : (inType === "checkbox") ? "QCU"
                             : (inType === "vrai_faux") ? "VF"
                             : "OPEN";
@@ -2847,10 +2841,12 @@ ${embeddedBlueprintScript}
                 return;
             }
 
-            if (type === 'QCU' || type === 'SELECT') {
+            if (type === 'QCU' || type === 'SELECT' || type === 'QCM') {
                 let options = [];
                 let correctVal = null;
+                const correctVals = [];
                 let correctText = "";
+                const isQcm = type === "QCM";
 
                 block.querySelectorAll('.option-row').forEach((row, idx) => {
                     const txt = row.querySelector('.opt-text').value.trim();
@@ -2860,6 +2856,7 @@ ${embeddedBlueprintScript}
                     if(txt) {
                         options.push({ value: val, label: txt });
                         if(isCorrect) {
+                            if (isQcm) correctVals.push(val);
                             if (correctVal === null) {
                                 correctVal = val;
                                 correctText = txt;
@@ -2880,13 +2877,16 @@ ${embeddedBlueprintScript}
                     bareme: bareme,
                     inputType: type === "SELECT" ? "select" : "checkbox",
                     autocorrect: true,
+                    besoinCorrectionManuelle: false,
                     questionText: enoncePlain,
-                    reponseCorrecte: correctVal,
+                    reponseCorrecte: isQcm ? correctVals : correctVal,
+                    reponseEleve: isQcm ? [] : "",
+                    correctionMode: isQcm ? "set_exact" : "single_exact",
                     reponseAttendue: finalExplanation,
                     options: options
                 });
                 trackExportQid(qidBase, type);
-                expectedAnswerBindings.push({ qid: qidBase, answerType: type === "SELECT" ? "SELECT" : "QCU" });
+                expectedAnswerBindings.push({ qid: qidBase, answerType: type === "SELECT" ? "SELECT" : (isQcm ? "QCM" : "QCU") });
 
                 if (type === "SELECT") {
                     const optsHtml = `<option value="">-- Sélectionner --</option>` + options.map((opt) => `<option value="${opt.value}">${opt.label}</option>`).join("");
@@ -2905,7 +2905,8 @@ ${embeddedBlueprintScript}
                             <div class="checkbox-group">
                     `;
                     options.forEach(opt => {
-                        studentHtmlQuestions += `<label><input type="radio" name="${qidBase}" value="${opt.value}" class="reponse-eleve" data-qid="${qidBase}"> ${opt.label}</label>`;
+                        const inputType = isQcm ? "checkbox" : "radio";
+                        studentHtmlQuestions += `<label><input type="${inputType}" name="${qidBase}" value="${opt.value}" class="reponse-eleve" data-qid="${qidBase}"> ${opt.label}</label>`;
                     });
                     studentHtmlQuestions += `</div></div>`;
                 }
@@ -3003,7 +3004,9 @@ ${embeddedBlueprintScript}
                         besoinCorrectionManuelle: true,
                         questionText: `${enoncePlain} — ${lineLabel}`,
                         reponseCorrecte: [],
-                        reponseAttendue: explanation
+                        reponseEleve: "",
+                        reponseAttendue: explanation,
+                        explication: explanation
                     });
                     trackExportQid(subqid, `${type} ligne ${idx + 1}`);
                     expectedAnswerBindings.push({ qid: subqid, answerType: "OPEN" });
