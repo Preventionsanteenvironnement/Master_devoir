@@ -106,6 +106,121 @@
     .q-controls { 
         display: flex; align-items: center; gap: 8px; margin-left: auto; 
     }
+    .question-block[data-type="SEPARATOR"] > .q-header .q-enonce,
+    .question-block[data-type="TITLE"] > .q-header .q-enonce,
+    .question-block[data-type="BOX_NOTE"] > .q-header .q-enonce,
+    .question-block[data-type="IMAGE"] > .q-header .q-enonce,
+    .question-block[data-type="DOCGROUP"] > .q-header .q-enonce {
+        display: none;
+    }
+    .question-block[data-type="SEPARATOR"] > .q-header .q-controls .q-comp,
+    .question-block[data-type="SEPARATOR"] > .q-header .q-controls .q-points,
+    .question-block[data-type="TITLE"] > .q-header .q-controls .q-comp,
+    .question-block[data-type="TITLE"] > .q-header .q-controls .q-points,
+    .question-block[data-type="BOX_NOTE"] > .q-header .q-controls .q-comp,
+    .question-block[data-type="BOX_NOTE"] > .q-header .q-controls .q-points,
+    .question-block[data-type="IMAGE"] > .q-header .q-controls .q-comp,
+    .question-block[data-type="IMAGE"] > .q-header .q-controls .q-points,
+    .question-block[data-type="DOCGROUP"] > .q-header .q-controls .q-comp,
+    .question-block[data-type="DOCGROUP"] > .q-header .q-controls .q-points {
+        display: none;
+    }
+    .docgroup-block {
+        border: 2px solid #f6c453;
+        background: linear-gradient(135deg, #fff8e1 0%, #fffbef 100%);
+    }
+    .docgroup-inner {
+        border: 1px solid #f4d58d;
+        border-radius: 10px;
+        background: rgba(255,255,255,0.55);
+        padding: 12px;
+        margin-top: 10px;
+    }
+    .docgroup-help {
+        font-size: 0.84em;
+        color: #8a6d1a;
+        margin-top: 4px;
+        margin-bottom: 10px;
+    }
+    .docgroup-questions {
+        margin-top: 10px;
+        border-top: 1px dashed #e7c97a;
+        padding-top: 10px;
+    }
+    .docgroup-linked {
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        margin: 10px 0;
+        padding: 10px 0;
+        animation: none;
+    }
+    .docgroup-linked:hover {
+        transform: none;
+        box-shadow: none;
+    }
+    .docgroup-linked .q-header {
+        background: transparent;
+        border-bottom: 1px dashed #dec07a;
+        padding: 6px 0;
+        margin-bottom: 8px;
+    }
+    .docgroup-linked .q-enonce {
+        display: block !important;
+        min-height: 42px;
+        background: rgba(255,255,255,0.92);
+        border: 1px dashed #c6b071;
+        border-radius: 6px;
+        padding: 8px 10px;
+        pointer-events: auto;
+        position: relative;
+        z-index: 2;
+    }
+    .docgroup-linked .config-zone {
+        background: rgba(255,255,255,0.65);
+    }
+    .docgroup-title {
+        font-weight: 700;
+        background: rgba(255,255,255,0.92);
+        border: 1px dashed #d2b86e;
+        border-radius: 6px;
+        padding: 8px 10px;
+    }
+    @media print {
+        body {
+            background: #fff !important;
+            color: #000 !important;
+            padding: 0 !important;
+            font-size: 12pt;
+        }
+        .tools-panel,
+        .quiz-stats,
+        .delete-btn,
+        .insert-btn,
+        .validation-modal,
+        #empty-msg {
+            display: none !important;
+        }
+        .container, .question-block, .document-box, .docgroup-inner {
+            box-shadow: none !important;
+        }
+        .container {
+            max-width: 100% !important;
+            border-radius: 0 !important;
+        }
+        .question-block,
+        .document-box,
+        .docgroup-inner {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+        h1, h2, h3, h4 {
+            color: #111 !important;
+        }
+        .q-header {
+            background: #f5f5f5 !important;
+        }
+    }
     .q-controls select, .q-controls input {
         font-weight: 600; font-size: 0.9em;
     }
@@ -366,17 +481,26 @@
     <button class="btn-tool btn-text" onclick="addBlock('ITAMAMI')">🧰 ITAMAMI</button>
     <span style="width:1px;background:rgba(255,255,255,0.2);margin:0 8px;"></span>
     <button class="btn-tool btn-doc" onclick="addBlock('DOC')">📄 Doc</button>
+    <button class="btn-tool btn-doc" onclick="addBlock('DOCGROUP')">📚 DocGroup</button>
     <span style="width:1px;background:rgba(255,255,255,0.2);margin:0 8px;"></span>
     <button class="btn-tool" style="background:linear-gradient(135deg, #8b5cf6, #7c3aed);" onclick="exportTemplate()">📤 Template IA</button>
     <button class="btn-tool" style="background:linear-gradient(135deg, #0ea5e9, #0284c7);" onclick="saveDraftJSON()">💾 Sauvegarder JSON</button>
     <button class="btn-tool" style="background:linear-gradient(135deg, #06b6d4, #0891b2);" onclick="importJSON()">📥 Import JSON</button>
     <button class="btn-tool" style="background:linear-gradient(135deg, #0891b2, #0e7490);" onclick="importJSONFromPaste()">📝 Coller JSON</button>
+    <button class="btn-tool" style="background:linear-gradient(135deg, #334155, #1f2937);" onclick="printPDF()">🖨️ Imprimer</button>
     <span style="width:1px;background:rgba(255,255,255,0.2);margin:0 8px;"></span>
     <button class="btn-tool btn-export" onclick="attemptExport()">🚀 EXPORTER</button>
 </div>
 
 <script>
     let qCount = 0;
+    const ALLOWED_TYPES = new Set([
+        "QCU", "QCM", "VF", "NUMBER", "SHORT", "SELECT",
+        "QQOQCP", "ITAMAMI", "PAD",
+        "DOC", "DOCGROUP", "IMAGE", "TITLE", "BOX_NOTE", "SEPARATOR",
+        // Legacy aliases still accepted for import compatibility
+        "ENC_KQQOQCP", "ENC_ITAMAMI", "ENC_PAD"
+    ]);
     window.MasterWidgets = window.MasterWidgets || (function() {
         const registry = {};
         return {
@@ -459,7 +583,6 @@
             exportToBlueprint(block, ctx) {
                 const rows = getActiveEncRows(block);
                 if (!rows.length) return [];
-                const mode = String(block.querySelector(".enc-mode")?.value || "TEXT").toUpperCase();
                 const rowPoints = splitPoints(ctx.bareme, rows.length);
                 const explanation = block.querySelector('.q-explain')?.value?.trim() || "";
                 return rows.map((row, idx) => {
@@ -473,39 +596,21 @@
                         label: `${ctx.qCounter}.${idx + 1}`,
                         competence: ctx.competence,
                         bareme: rowPoints[idx] ?? 0,
+                        inputType: "texte_exact",
+                        autocorrect: false,
+                        besoinCorrectionManuelle: true,
                         questionText: `${ctx.enoncePlain} — ${lineLabel}`,
-                        reponseAttendue: explanation
+                        reponseCorrecte: [],
+                        reponseAttendue: explanation,
+                        explication: explanation,
+                        reponseEleve: ""
                     };
-                    if (mode === "SELECT") {
-                        const opts = parseFrameOptions(row.querySelector(".enc-select-options")?.value || "");
-                        const rawCorrect = String(row.querySelector(".enc-select-correct")?.value || "").trim();
-                        const validCorrect = opts.some((opt) => opt.value === rawCorrect) ? rawCorrect : "";
-                        const canAutocorrect = opts.length >= 2 && !!validCorrect;
-                        item.inputType = "select";
-                        item.options = opts;
-                        item.reponseCorrecte = validCorrect;
-                        item.autocorrect = canAutocorrect;
-                        item.besoinCorrectionManuelle = !canAutocorrect;
-                    item.explication = explanation || "";
-                    } else {
-                        item.inputType = "texte_exact";
-                        const expectedRaw = String(row.querySelector(".enc-expected")?.value || "").trim();
-                        const expectedParts = expectedRaw
-                            ? expectedRaw.split(/\s*[;|]\s*/).map(s => s.trim()).filter(Boolean)
-                            : [];
-                        item.reponseCorrecte = expectedParts.length <= 1 ? (expectedParts[0] || "") : expectedParts;
-                        item.reponseAttendue = expectedRaw; // attendu visible dans la grille
-                        item.explication = explanation || "";
-                        item.autocorrect = expectedParts.length > 0;
-                        item.besoinCorrectionManuelle = !item.autocorrect;
-                    }
                     return item;
                 });
             },
             exportToStudentHTML(block, ctx) {
                 const rows = getActiveEncRows(block);
                 if (!rows.length) return "";
-                const mode = String(block.querySelector(".enc-mode")?.value || "TEXT").toUpperCase();
                 let html = `
                     <div class="question-block">
                         <span class="q-label">${ctx.qCounter}</span><span class="q-comp">${ctx.competence}</span><span class="q-points">${ctx.bareme} pts</span>
@@ -519,18 +624,10 @@
                     const subkey = row.dataset.subkey || normalizeFrameKey(lineLabel);
                     const subqid = row.dataset.subqid || `${ctx.qidBase}_${this.slug}_${subkey}`;
                     row.dataset.subqid = subqid;
-                    let cellHtml = `<textarea class="reponse-eleve answer-input" data-qid="${subqid}" rows="2" style="width:100%; min-height:54px;" placeholder="Votre réponse"></textarea>`;
-                    if (mode === "SELECT") {
-                        const opts = parseFrameOptions(row.querySelector(".enc-select-options")?.value || "");
-                        const optsHtml = [`<option value="">-- Sélectionner --</option>`]
-                            .concat(opts.map((opt) => `<option value="${opt.value}">${opt.label}</option>`))
-                            .join("");
-                        cellHtml = `<select class="reponse-eleve answer-select" data-qid="${subqid}">${optsHtml}</select>`;
-                    }
                     html += `
                         <tr>
                             <td>${lineLabel}</td>
-                            <td>${cellHtml}</td>
+                            <td><textarea class="reponse-eleve answer-input" data-qid="${subqid}" rows="2" style="width:100%; min-height:54px;" placeholder="Votre réponse"></textarea></td>
                         </tr>
                     `;
                 });
@@ -577,7 +674,7 @@
         countAsQuestion: false,
         exportToBlueprint() { return []; },
         exportToStudentHTML(block) {
-            const text = block.querySelector('.q-enonce')?.value || "";
+            const text = block.querySelector('.title-widget-input')?.value || block.querySelector('.q-enonce')?.value || "";
             return `<div class="document-box" style="background:#eef2ff;border-color:#a5b4fc;"><h4 style="margin:0;">${text}</h4></div>`;
         },
         importFromBlueprint() { return null; }
@@ -587,7 +684,7 @@
         countAsQuestion: false,
         exportToBlueprint() { return []; },
         exportToStudentHTML(block) {
-            const title = block.querySelector('.q-enonce')?.value || "Note";
+            const title = block.querySelector('.box-note-title')?.value || block.querySelector('.q-enonce')?.value || "Note";
             const content = (block.querySelector('.box-note-content')?.value || "").replace(/\n/g, "<br>");
             return `<div class="document-box" style="background:#fff7ed;border-color:#fdba74;"><h4>${title}</h4><p>${content}</p></div>`;
         },
@@ -600,22 +697,25 @@
             ctx.content.innerHTML = `
                 <div class="config-zone image-widget-editor" style="background:#f8fafc; border-color:#cbd5e1;">
                     <span class="config-label">Image seule (non export blueprint, nom simple => images/nom.ext)</span>
+                    <input type="text" class="image-title-input" placeholder="Titre affiché" style="width:100%; margin-bottom:8px;">
                     <input type="text" class="image-path-input" placeholder="ex: schema1.png ou images/schema1.png" oninput="updateImagePreview(this)" style="width:100%; margin-bottom:8px;">
                     <img class="image-preview" alt="Aperçu image" style="display:none; max-width:100%; border:1px solid #cbd5e1; border-radius:8px;">
                 </div>
             `;
+            const titleInput = ctx.content.querySelector(".image-title-input");
             const enonceField = ctx.block ? ctx.block.querySelector(".q-enonce") : null;
             if (enonceField && !enonceField.value.trim()) {
                 enonceField.value = "Illustration";
                 autoResize(enonceField);
             }
+            if (titleInput) titleInput.value = enonceField?.value?.trim() || "Illustration";
         },
         exportToBlueprint() { return []; },
         exportToStudentHTML(block, ctx) {
             const raw = block.querySelector(".image-path-input")?.value || "";
             const src = normalizeImagePath(raw);
             if (!src) return "";
-            const title = ctx.enoncePlain || "Illustration";
+            const title = block.querySelector('.image-title-input')?.value || ctx.enoncePlain || "Illustration";
             return `<div class="document-box"><h4>${title}</h4><img src="${src}" alt="${title}" style="max-width:100%; height:auto; border-radius:8px;"></div>`;
         },
         importFromBlueprint() { return null; }
@@ -639,7 +739,7 @@
         { key: "individu", label: "INDIVIDU" },
         { key: "tache", label: "TACHE" },
         { key: "activite", label: "ACTIVITE" },
-        { key: "materiel", label: "MATERIEL (MATERIAU)" },
+        { key: "materiel", label: "MATERIEL" },
         { key: "milieu", label: "MILIEU" }
     ], "itamami"));
     // Alias legacy
@@ -667,7 +767,8 @@
     }
 
     function countsAsQuestionType(type) {
-        if (type === "DOC") return false;
+        if (type === "DOC" || type === "DOCGROUP") return false;
+        if (["SEPARATOR", "TITLE", "BOX_NOTE", "IMAGE"].includes(type)) return false;
         return !isVisualWidgetType(type);
     }
 
@@ -756,20 +857,6 @@
         return getEncRows(block).filter((row) => row.dataset.enabled !== "0");
     }
 
-    function setEncMode(source, forcedMode = null) {
-        const block = source && source.classList && source.classList.contains("question-block")
-            ? source
-            : (source && typeof source.closest === "function" ? source.closest(".question-block") : null);
-        if (!block) return;
-        const modeEl = block.querySelector(".enc-mode");
-        const mode = String(forcedMode || modeEl?.value || "TEXT").toUpperCase();
-        if (modeEl) modeEl.value = mode;
-        block.dataset.encMode = mode;
-        block.querySelectorAll(".enc-select-config").forEach((el) => {
-            el.style.display = mode === "SELECT" ? "block" : "none";
-        });
-    }
-
     function splitPoints(total, count) {
         const c = Math.max(0, Number(count) || 0);
         if (c === 0) return [];
@@ -823,20 +910,20 @@
             const type = el.dataset.type;
             if (!countsAsQuestionType(type)) {
                 const numEl = el.querySelector('.q-num');
-                if (numEl) numEl.textContent = "•";
+                if (numEl) numEl.textContent = type === "DOCGROUP" ? "📚" : "•";
             }
         });
         qCount = i - 1;
     }
 
     // --- CRÉATION DE BLOCS ---
-    function createBlockSkeleton(type, insertAfterElem = null) {
+    function createBlockSkeleton(type, insertAfterElem = null, parentContainer = null) {
         document.getElementById('empty-msg').style.display = 'none';
         
         const div = document.createElement('div');
         div.className = `question-block ${type === 'DOC' ? 'doc-block' : ''}`;
         div.dataset.type = type;
-        div.dataset.qid = createStableQid();
+        div.dataset.qid = countsAsQuestionType(type) ? createStableQid() : "";
         
         let headerHtml = '';
         
@@ -846,6 +933,16 @@
                     <div class="q-num">📄</div>
                     <textarea class="doc-title-input auto-grow" rows="1" placeholder="Titre du document" oninput="autoResize(this)" style="font-weight:bold; background:transparent; border:none; border-bottom:2px dashed #f59e0b; color:#d97706; flex:1;"></textarea>
                     <button class="delete-btn" onclick="removeBlock(this)">Supprimer</button>
+                </div>
+            `;
+        } else if (type === 'DOCGROUP') {
+            headerHtml = `
+                <div class="q-header" style="background:linear-gradient(135deg, #fff3cd 0%, #fef3c7 100%); border-color:#fbbf24;">
+                    <div class="q-num">📚</div>
+                    <div style="flex:1; font-weight:800; color:#8a5a00; padding-top:6px;">Document + questions liées (bloc non compté)</div>
+                    <div class="q-controls">
+                        <button class="delete-btn" onclick="removeBlock(this)">Supprimer</button>
+                    </div>
                 </div>
             `;
         } else {
@@ -871,8 +968,8 @@
              div.innerHTML += `<button class="insert-btn" onclick="addQuestionAfter(this)">➕ Ajouter une question sous ce document</button>`;
         }
 
-        const container = document.getElementById('quiz-content');
-        if (insertAfterElem) {
+        const container = parentContainer || document.getElementById('quiz-content');
+        if (insertAfterElem && !parentContainer) {
             insertAfter(div, insertAfterElem);
         } else {
             container.appendChild(div);
@@ -885,18 +982,82 @@
         return div.querySelector('.block-content');
     }
 
-    function addQuestionAfter(btn) {
-        const block = btn.closest('.question-block');
-        addBlock('QCU', block);
+    function askLinkedQuestionType(defaultType = "SHORT") {
+        const allowed = ['SHORT', 'QCU', 'SELECT'];
+        const labels = {
+            SHORT: "Texte",
+            QCU: "QCU",
+            SELECT: "Liste déroulante"
+        };
+        const typed = prompt(
+            "Type de question sous ce document:\n" +
+            "SHORT/TEXTE (défaut), QCU, SELECT",
+            defaultType
+        );
+        if (typed === null) return null;
+        const wanted = String(typed || "SHORT").trim().toUpperCase();
+        const normalized = (wanted === "TEXTE" || wanted === "TEXTE_LIBRE") ? "SHORT" : wanted;
+        const chosen = allowed.includes(normalized) ? normalized : "SHORT";
+        if (typed !== null && normalized === "QCM") {
+            alert("QCM n'est pas proposé dans ce menu. Utilisez QCU ou Liste déroulante ici.");
+        } else if (typed !== null && !allowed.includes(normalized)) {
+            showNotification(`Type non reconnu, Texte appliqué (types supportés: ${allowed.map((t) => labels[t]).join(", ")})`, "info");
+        }
+        return chosen;
     }
 
-    function addBlock(type, insertAfterElem = null) {
-        const content = createBlockSkeleton(type, insertAfterElem);
+    function askDocGroupQuestionType() {
+        const allowed = ['QCU', 'VF', 'SELECT', 'NUMBER', 'SHORT', 'ITAMAMI', 'PAD', 'QQOQCP'];
+        const typed = prompt(
+            "Type de question liée au document:\nQCU (défaut), VF, SELECT, NUMBER, SHORT, ITAMAMI, PAD, QQOQCP",
+            "QCU"
+        );
+        if (typed === null) return null;
+        const wanted = String(typed || "QCU").trim().toUpperCase();
+        if (wanted === "QCM") {
+            alert("QCM n'est pas proposé dans les questions liées du DocGroup. Utilisez QCU, VF, SELECT, NUMBER, SHORT, ITAMAMI, PAD ou QQOQCP.");
+            return null;
+        }
+        if (!allowed.includes(wanted)) {
+            if (typed !== null) showNotification(`Type non reconnu, QCU appliqué`, "info");
+            return "QCU";
+        }
+        return wanted;
+    }
+
+    function addQuestionAfter(btn) {
+        const block = btn.closest('.question-block');
+        const chosen = askLinkedQuestionType("SHORT");
+        if (!chosen) return;
+        addBlock(chosen, block);
+    }
+
+    function addLinkedQuestionToDocGroup(btn) {
+        const docGroup = btn.closest(".question-block[data-type='DOCGROUP']");
+        if (!docGroup) return;
+        const mount = docGroup.querySelector(".docgroup-questions");
+        if (!mount) return;
+        const chosen = askDocGroupQuestionType();
+        if (!chosen) return;
+        addBlock(chosen, null, mount, docGroup.dataset.docgroupId || "");
+    }
+
+    function addBlock(type, insertAfterElem = null, parentContainer = null, parentDocGroupId = "") {
+        if (!ALLOWED_TYPES.has(type)) {
+            alert(`Type non supporté: ${type}`);
+            return;
+        }
+        const content = createBlockSkeleton(type, insertAfterElem, parentContainer);
         const uid = Date.now();
+        const blockRoot = content.closest('.question-block');
+        if (parentDocGroupId && blockRoot) {
+            blockRoot.dataset.parentDocgroup = parentDocGroupId;
+            blockRoot.classList.add("docgroup-linked");
+        }
 
         if (type === 'QCU' || type === 'SELECT' || type === 'QCM') {
             const containerId = `opts_${uid}`;
-            const isQcm = type === "QCM";
+            const isQcm = type === 'QCM';
             content.innerHTML = `
                 <div class="config-zone">
                     <span class="config-label">📝 Options (${type === "SELECT" ? "Liste déroulante : cochez la bonne réponse" : (isQcm ? "QCM : cochez les bonnes réponses" : "QCU : cochez la bonne réponse")})</span>
@@ -935,27 +1096,17 @@
                     <td class="enc-label-cell">${lineDef.label}</td>
                     <td class="enc-answer-cell">
                         <textarea class="enc-expected auto-grow" rows="2" oninput="autoResize(this)" placeholder="Réponse attendue (optionnelle)..."></textarea>
-                        <div class="enc-select-config" style="display:none; margin-top:8px;">
-                            <textarea class="enc-select-options auto-grow" rows="1" oninput="autoResize(this)" placeholder="Options (séparées par ; ou retour ligne)"></textarea>
-                            <input class="enc-select-correct" type="text" placeholder="Réponse correcte (ex: opt1)" style="margin-top:6px;">
-                        </div>
                     </td>
-                    <td style="width:76px; text-align:center;"><span style="font-size:0.8em; color:#64748b;">fixe</span></td>
+                    <td style="width:76px; text-align:center;">
+                        <button class="enc-toggle-btn" type="button" onclick="toggleEncRow(this)" title="Désactiver cette ligne">×</button>
+                    </td>
                 </tr>
             `;
             }).join("");
 
             content.innerHTML = `
                 <div class="config-zone" style="background:linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%); border-color:#a5b4fc;">
-                    <div style="display:flex; gap:10px; align-items:center; justify-content:space-between; margin-bottom:10px;">
-                        <span class="config-label">🧩 Tableau encadré (${resolveFrameRows(def).length} lignes fixes)</span>
-                        <label style="font-size:0.85em; font-weight:700;">Mode:
-                            <select class="enc-mode" onchange="setEncMode(this)">
-                                <option value="TEXT">TEXTE</option>
-                                <option value="SELECT">LISTE DEROULANTE</option>
-                            </select>
-                        </label>
-                    </div>
+                    <span class="config-label">🧩 Tableau encadré (${resolveFrameRows(def).length} lignes fixes)</span>
                     <table class="enc-table" aria-label="Tableau encadré">
                         <thead>
                             <tr>
@@ -975,7 +1126,7 @@
                 enonceField.value = def.title;
                 autoResize(enonceField);
             }
-            setEncMode(block, "TEXT");
+            getEncRows(block).forEach((row) => setEncRowEnabled(row, true));
         }
         else if (type === 'SEPARATOR') {
             content.innerHTML = `
@@ -989,29 +1140,34 @@
             content.innerHTML = `
                 <div class="config-zone" style="background:#f8fafc; border-color:#cbd5e1;">
                     <span class="config-label">Titre intercalé (non exporté dans le blueprint)</span>
-                    <p style="font-weight:700; color:#334155;">Ce bloc sert uniquement de mise en forme.</p>
+                    <input type="text" class="title-widget-input" placeholder="Titre de section" style="width:100%;" oninput="const b=this.closest('.question-block'); const e=b?b.querySelector('.q-enonce'):null; if(e){e.value=this.value; autoResize(e);}">
                 </div>
             `;
             const block = content.closest(".question-block");
             const enonceField = block ? block.querySelector(".q-enonce") : null;
+            const titleInput = block ? block.querySelector(".title-widget-input") : null;
             if (enonceField && !enonceField.value.trim()) {
                 enonceField.value = "Titre de section";
                 autoResize(enonceField);
             }
+            if (titleInput) titleInput.value = enonceField?.value || "Titre de section";
         }
         else if (type === 'BOX_NOTE') {
             content.innerHTML = `
                 <div class="config-zone" style="background:#fff7ed; border-color:#fdba74;">
                     <span class="config-label">Encadré note/aide (non exporté dans le blueprint)</span>
+                    <input type="text" class="box-note-title" placeholder="Titre de la note" style="width:100%; margin-bottom:8px;" oninput="const b=this.closest('.question-block'); const e=b?b.querySelector('.q-enonce'):null; if(e){e.value=this.value; autoResize(e);}">
                     <textarea class="box-note-content auto-grow" rows="3" oninput="autoResize(this)" placeholder="Texte de note ou d'aide..."></textarea>
                 </div>
             `;
             const block = content.closest(".question-block");
             const enonceField = block ? block.querySelector(".q-enonce") : null;
+            const noteTitle = block ? block.querySelector(".box-note-title") : null;
             if (enonceField && !enonceField.value.trim()) {
                 enonceField.value = "Note";
                 autoResize(enonceField);
             }
+            if (noteTitle) noteTitle.value = enonceField?.value || "Note";
         }
         else if (isWidgetType(type) && typeof getWidgetDef(type).renderEditor === "function") {
             try {
@@ -1025,13 +1181,34 @@
                 content.innerHTML = `<div class="config-zone">Erreur widget: ${String(err.message || err)}</div>`;
             }
         }
+        else if (type === 'DOCGROUP') {
+            const block = content.closest(".question-block");
+            const docgroupId = block?.dataset?.docgroupId || `dg_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+            if (block) {
+                block.dataset.docgroupId = docgroupId;
+                block.classList.add("docgroup-block");
+            }
+            content.innerHTML = `
+                <div class="docgroup-inner">
+                    <label style="font-weight:700;display:block;">Titre du document à inventer</label>
+                    <div class="docgroup-help">Écris un titre clair (5 à 10 mots)</div>
+                    <textarea class="docgroup-title auto-grow" rows="1" oninput="autoResize(this)" placeholder="Ex: Les risques liés aux écrans chez les adolescents"></textarea>
+                    <label style="font-weight:700;display:block;margin-top:12px;">Contenu du document à rédiger</label>
+                    <div class="docgroup-help">8 à 12 lignes, niveau Bac Pro, style manuel scolaire</div>
+                    <textarea class="docgroup-content auto-grow" rows="6" oninput="autoResize(this)" placeholder="Rédige ici le document support..."></textarea>
+                    <h4 style="margin-top:14px;color:#7c5b13;">Questions liées au document</h4>
+                    <button class="insert-btn" type="button" onclick="addLinkedQuestionToDocGroup(this)">➕ Ajouter une question liée</button>
+                    <div class="docgroup-questions"></div>
+                </div>
+            `;
+        }
         else if (type === 'DOC') {
             content.innerHTML = `
                 <textarea class="doc-content auto-grow" style="min-height:100px; width:100%;" placeholder="Contenu du document..." oninput="autoResize(this)"></textarea>
             `;
         }
         
-        if (type !== 'DOC' && !isNonExportWidgetType(type)) {
+        if (type !== 'DOC' && type !== 'DOCGROUP' && !isNonExportWidgetType(type)) {
             content.innerHTML += `
                 <div style="margin-top:15px;">
                     <textarea class="q-explain auto-grow" rows="1" oninput="autoResize(this)" placeholder="💡 Explication pour la correction..." style="font-size:0.9em;color:#64748b;background:#f8fafc;border:2px dashed #cbd5e0;width:100%;border-radius:6px;padding:10px;"></textarea>
@@ -1112,10 +1289,9 @@
                     if (opt.value.trim()) validOptions++;
                 });
                 
-                if (validOptions < 2) warnings.push(`⚠️ Question ${num} : moins de 2 options valides`);
-                if (checked.length === 0) issues.push(`❌ Question ${num} : aucune bonne réponse cochée`);
-                if ((type === 'QCU' || type === 'SELECT') && checked.length > 1) issues.push(`❌ Question ${num} : ${type} avec plusieurs bonnes réponses`);
-                if (type === 'QCM' && checked.length === 1) warnings.push(`⚠️ Question ${num} : QCM avec une seule bonne réponse`);
+                if (validOptions < 2) issues.push(`❌ Question ${num} (${q.dataset.qid || "qid_manquant"}) : ${type} doit avoir au moins 2 options non vides`);
+                if (checked.length === 0) issues.push(`❌ Question ${num} (${q.dataset.qid || "qid_manquant"}) : aucune bonne réponse cochée`);
+                if ((type === 'QCU' || type === 'SELECT') && checked.length > 1) issues.push(`❌ Question ${num} (${q.dataset.qid || "qid_manquant"}) : ${type} doit avoir exactement 1 bonne réponse`);
             }
             
             if (type === 'SHORT' || type === 'NUMBER') {
@@ -1131,15 +1307,6 @@
                 if (points <= 0) {
                     issues.push(`❌ Question ${num} : barème encadré invalide (${points})`);
                 }
-                const mode = String(q.querySelector('.enc-mode')?.value || 'TEXT').toUpperCase();
-                if (mode === 'SELECT') {
-                    activeRows.forEach((row, ridx) => {
-                        const opts = parseFrameOptions(row.querySelector('.enc-select-options')?.value || '');
-                        const correct = String(row.querySelector('.enc-select-correct')?.value || '').trim();
-                        if (opts.length < 2) issues.push(`❌ Question ${num}, ligne ${ridx + 1} : liste déroulante avec moins de 2 options.`);
-                        if (!correct) issues.push(`❌ Question ${num}, ligne ${ridx + 1} : réponse correcte manquante (mode liste).`);
-                    });
-                }
             }
             
         });
@@ -1150,6 +1317,79 @@
         if (competences.size === 1) warnings.push(`⚠️ Une seule compétence utilisée : ${Array.from(competences)[0]}`);
         
         return { issues, warnings, canExport: issues.length === 0 };
+    }
+
+    function runExportSelfCheck() {
+        const errors = [];
+        const blocks = Array.from(document.querySelectorAll('.question-block'));
+        let qIdx = 0;
+
+        blocks.forEach((block) => {
+            const type = String(block.dataset.type || "");
+            if (!ALLOWED_TYPES.has(type)) {
+                errors.push(`Type non autorisé détecté: ${type || "inconnu"}`);
+                return;
+            }
+            if (!countsAsQuestionType(type)) {
+                if (type === "DOCGROUP") {
+                    const t = String(block.querySelector('.docgroup-title')?.value || "").trim();
+                    const c = String(block.querySelector('.docgroup-content')?.value || "").trim();
+                    if (!t) errors.push("DocGroup : renseigner 'Titre du document à inventer'");
+                    if (!c) errors.push("DocGroup : renseigner 'Contenu du document à rédiger'");
+                }
+                if (["SEPARATOR", "TITLE", "BOX_NOTE", "IMAGE", "DOC", "DOCGROUP"].includes(type) && countsAsQuestionType(type)) {
+                    errors.push(`Bloc décoratif compté comme question: ${type}`);
+                }
+                return;
+            }
+
+            qIdx += 1;
+            if (type === "QCU") {
+                const rows = Array.from(block.querySelectorAll('.option-row'));
+                const valid = rows.filter((row) => String(row.querySelector('.opt-text')?.value || "").trim());
+                const checked = rows.filter((row) => row.querySelector('.correct-check')?.checked && String(row.querySelector('.opt-text')?.value || "").trim());
+                if (valid.length < 2) errors.push(`QCU numéro ${qIdx} (${block.dataset.qid || "qid_manquant"}) doit avoir au moins 2 options non vides`);
+                if (checked.length !== 1) errors.push(`QCU numéro ${qIdx} (${block.dataset.qid || "qid_manquant"}) doit avoir exactement 1 bonne réponse`);
+            }
+
+            if (type === "QCM") {
+                const rows = Array.from(block.querySelectorAll('.option-row'));
+                const valid = rows.filter((row) => String(row.querySelector('.opt-text')?.value || "").trim());
+                const checked = rows.filter((row) => row.querySelector('.correct-check')?.checked && String(row.querySelector('.opt-text')?.value || "").trim());
+                if (valid.length < 2) errors.push(`QCM numéro ${qIdx} (${block.dataset.qid || "qid_manquant"}) doit avoir au moins 2 options non vides`);
+                if (checked.length < 1) errors.push(`QCM numéro ${qIdx} (${block.dataset.qid || "qid_manquant"}) doit avoir au moins 1 bonne réponse`);
+            }
+
+            if (type === "SELECT") {
+                const rows = Array.from(block.querySelectorAll('.option-row'));
+                const valid = rows.filter((row) => String(row.querySelector('.opt-text')?.value || "").trim());
+                const checked = rows.filter((row) => row.querySelector('.correct-check')?.checked && String(row.querySelector('.opt-text')?.value || "").trim());
+                if (valid.length < 2 || checked.length !== 1) {
+                    errors.push(`Liste déroulante numéro ${qIdx} doit avoir au moins 2 options et 1 seule bonne réponse`);
+                }
+            }
+
+            if (type === "NUMBER") {
+                const raw = String(block.querySelector('.valid-answers')?.value || "").trim();
+                if (!raw) {
+                    errors.push(`Nombre numéro ${qIdx} sans réponse attendue`);
+                } else {
+                    const first = raw.split(';').map((s) => s.trim()).filter(Boolean)[0];
+                    if (!first || Number.isNaN(Number(first))) {
+                        errors.push(`Nombre numéro ${qIdx} doit avoir une réponse numérique valide`);
+                    }
+                }
+            }
+
+            if (isEncType(type)) {
+                const activeRows = getActiveEncRows(block);
+                if (!activeRows.length) {
+                    errors.push(`${type} numéro ${qIdx} doit avoir au moins 1 ligne active`);
+                }
+            }
+        });
+
+        return { ok: errors.length === 0, errors };
     }
 
     function showValidation(validation) {
@@ -1201,8 +1441,17 @@
     // ============================================================
 
     function attemptExport() {
+        const selfCheck = runExportSelfCheck();
+        if (!selfCheck.ok) {
+            showExportErrors("❌ Export bloqué : self-check invalide", selfCheck.errors);
+            return;
+        }
         const validation = validateQuiz();
         showValidation(validation);
+    }
+
+    function printPDF() {
+        window.print();
     }
 
     function generateStudentTemplate(titre, devoirId, contentHTML, competences, blueprintData = null) {
@@ -1408,15 +1657,14 @@
         }
     </style>
 </head>
-<body data-id-exercice="\${devoirId}">
+<body data-id-exercice="${devoirId}">
 <div class="container">
     <div class="header">
-        <h1>\${titre}</h1>
-        <div class="subtitle">Quiz Auto-Corrigé</div>
+        <h1>${titre}</h1>
     </div>
     <div class="competences-box">
         <h3>Compétences évaluées</h3>
-        <ul>\${compList}</ul>
+        <ul>${compList}</ul>
     </div>
     <div class="body-content">
 
@@ -1428,7 +1676,7 @@
         </div>
     </div>
 
-    \${contentHTML}
+    ${contentHTML}
 
     <div class="submit-section">
         <button class="submit-btn" id="btn-envoyer" onclick="window.tenterEnvoi()">Envoyer ma copie 📤</button>
@@ -1553,7 +1801,7 @@
     };
 <\/script>
 
-\${embeddedBlueprintScript}
+${embeddedBlueprintScript}
 
 <script type="module" src="https://mapse.fr/annuaire.js"><\/script>
 <script type="module" src="https://mapse.fr/assets/pse-runner.js"><\/script>
@@ -1605,6 +1853,7 @@
                     "NE JAMAIS modifier : id, qid, type, inputType, competence, bareme",
                     "GARDER tous les identifiants identiques",
                     "NE JAMAIS transformer une question vers un autre type",
+                    "Types autorisés : QCU, QCM, SELECT, VF, NUMBER, SHORT, QQOQCP, PAD, ITAMAMI, DOC, DOCGROUP, IMAGE, TITLE, BOX_NOTE, SEPARATOR",
                     "Niveau pédagogique : " + niveau,
                     "Utiliser le PDF cours fourni comme référence"
                 ],
@@ -1619,11 +1868,12 @@
                 ],
                 formats_reponses: {
                     QCU: "1 seule bonne réponse dans reponseCorrecte",
-                    QCM: "Plusieurs bonnes réponses possibles dans reponseCorrecte (tableau d'identifiants d'options)",
+                    QCM: "Plusieurs bonnes réponses possibles dans reponseCorrecte (liste d'identifiants d'options)",
                     SELECT: "1 seule bonne réponse dans reponseCorrecte (id value d'option)",
                     VF: "Justifier dans reponseAttendue pourquoi vrai ou faux + référence cours",
                     SHORT: "Accepter plusieurs formulations séparées par ; dans reponseCorrecte",
-                    NUMBER: "Valeur numérique exacte + explication calcul dans reponseAttendue"
+                    NUMBER: "Valeur numérique exacte + explication calcul dans reponseAttendue",
+                    ENCADRES: "QQOQCP/PAD/ITAMAMI : sous-questions texte libre, correction manuelle"
                 },
                 final: "SUPPRIMER ce champ instructions du JSON final"
             },
@@ -1642,19 +1892,29 @@
 
         document.querySelectorAll('.question-block').forEach((block) => {
             const type = block.dataset.type;
-            if (type === 'DOC') return; // Skip docs dans template
+            if (type === 'DOC') return; // Skip doc classique dans template
 
             const qidBase = block.dataset.qid;
+            if (type === 'DOCGROUP') {
+                template.content.push({
+                    type: "doc",
+                    docId: block.dataset.docgroupId || `dg_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                    docTitle: "[TITRE DU DOCUMENT À INVENTER]",
+                    docContent: "[CONTENU DU DOCUMENT À RÉDIGER]"
+                });
+                return;
+            }
             const competence = block.querySelector('.q-comp').value;
             const bareme = parseFloat(block.querySelector('.q-points').value) || 1;
             if (!isVisualWidgetType(type)) usedComps.add(competence);
 
             // Template selon type
             if (type === 'QCU' || type === 'SELECT' || type === 'QCM') {
-                const optCount = block.querySelectorAll('.option-row').length || 4;
+                const baseCount = block.querySelectorAll('.option-row').length || 4;
+                const optCount = type === "SELECT" ? Math.max(2, baseCount) : Math.max(3, baseCount);
                 const emptyOptions = Array.from({length: optCount}, (_, i) => ({
                     value: `${qidBase}_opt${i+1}`,
-                    label: `[OPTION ${i+1} À REMPLIR]`
+                    label: `[OPTION ${i+1}]`
                 }));
 
                 template.content.push({
@@ -1665,8 +1925,11 @@
                     bareme: bareme,
                     inputType: type === 'SELECT' ? "select" : "checkbox",
                     autocorrect: true,
+                    besoinCorrectionManuelle: false,
                     questionText: "[ÉNONCÉ À REMPLIR]",
                     reponseCorrecte: type === 'QCM' ? ["[ID_OPTION_1]", "[ID_OPTION_2]"] : "[ID_OPTION_CORRECTE]",
+                    reponseEleve: type === 'QCM' ? [] : "",
+                    correctionMode: type === 'QCM' ? "set_exact" : "single_exact",
                     reponseAttendue: "[EXPLICATION DÉTAILLÉE À RÉDIGER]",
                     explication: "[EXPLICATION DÉTAILLÉE À RÉDIGER]",
                     options: emptyOptions
@@ -1690,20 +1953,21 @@
                 qCounter++;
             }
             else if (type === 'SHORT' || type === 'NUMBER') {
+                const isNum = type === 'NUMBER';
                 template.content.push({
                     type: "question",
                     qid: qidBase,
                     label: qCounter.toString(),
                     competence: competence,
                     bareme: bareme,
-                    inputType: type === 'NUMBER' ? "number" : "texte_exact",
-                    autocorrect: false,
-                    besoinCorrectionManuelle: true,
+                    inputType: isNum ? "number" : "texte_exact",
+                    autocorrect: isNum,
+                    besoinCorrectionManuelle: isNum ? undefined : true,
                     questionText: "[ÉNONCÉ À REMPLIR]",
-                    reponseCorrecte: type === 'NUMBER' ? "[NOMBRE]" : ["[RÉPONSE1]", "[RÉPONSE2]"],
+                    reponseCorrecte: isNum ? "[NOMBRE]" : ["[RÉPONSE1]", "[RÉPONSE2]"],
                     reponseAttendue: "[EXPLICATION AVEC CALCUL/JUSTIFICATION]",
                     explication: "[EXPLICATION DÉTAILLÉE À RÉDIGER]",
-                    tolerance: type === 'NUMBER' ? 0 : undefined
+                    tolerance: isNum ? 0 : undefined
                 });
                 qCounter++;
             }
@@ -1711,29 +1975,24 @@
                 const explanation = block.querySelector('.q-explain')?.value?.trim() || "[EXPLICATION DÉTAILLÉE À RÉDIGER]";
                 const activeRows = getActiveEncRows(block);
                 if (activeRows.length === 0) return;
-                const mode = String(block.querySelector('.enc-mode')?.value || "TEXT").toUpperCase();
                 const rowPoints = splitPoints(bareme, Math.max(1, activeRows.length));
                 activeRows.forEach((row, idx) => {
                     const subqid = row.dataset.subqid || `${qidBase}_${(getWidgetDef(type)?.slug || normalizeFrameKey(type))}_${row.dataset.subkey || idx + 1}`;
                     row.dataset.subqid = subqid;
                     const lineLabel = row.dataset.label || `Ligne ${idx + 1}`;
-                    const opts = parseFrameOptions(row.querySelector(".enc-select-options")?.value || "");
-                    const correct = String(row.querySelector(".enc-select-correct")?.value || "").trim();
-                    const canAutocorrect = mode === "SELECT" && opts.length >= 2 && !!correct;
                     template.content.push({
                         type: "question",
                         qid: subqid,
                         label: `${qCounter}${String.fromCharCode(97 + idx)}`,
                         competence: competence,
                         bareme: rowPoints[idx] ?? 0,
-                        inputType: mode === "SELECT" ? "select" : "texte_exact",
-                        autocorrect: canAutocorrect,
-                        besoinCorrectionManuelle: !canAutocorrect,
+                        inputType: "texte_exact",
+                        autocorrect: false,
+                        besoinCorrectionManuelle: true,
                         questionText: "[ÉNONCÉ À REMPLIR] — " + lineLabel,
-                        reponseCorrecte: mode === "SELECT" ? "[ID_OPTION_CORRECTE]" : [],
+                        reponseCorrecte: [],
                         reponseAttendue: explanation,
-                        explication: explanation,
-                        options: mode === "SELECT" ? (opts.length ? opts : [{ value: "opt1", label: "[OPTION 1]" }, { value: "opt2", label: "[OPTION 2]" }]) : undefined
+                        explication: explanation
                     });
                 });
                 qCounter++;
@@ -1758,10 +2017,20 @@
                 type: type,
                 qid: block.dataset.qid || ""
             };
+            if (block.dataset.parentDocgroup) {
+                item.parentDocGroup = block.dataset.parentDocgroup;
+            }
 
             if (type === 'DOC') {
                 item.docTitle = block.querySelector('.doc-title-input')?.value || "";
                 item.docContent = block.querySelector('.doc-content')?.value || "";
+                questions.push(item);
+                return;
+            }
+            if (type === 'DOCGROUP') {
+                item.docgroupId = block.dataset.docgroupId || "";
+                item.docTitle = block.querySelector('.docgroup-title')?.value || "";
+                item.docContent = block.querySelector('.docgroup-content')?.value || "";
                 questions.push(item);
                 return;
             }
@@ -1783,23 +2052,24 @@
                 item.correct = block.querySelector('input[value="vrai"]')?.checked ? 'vrai' : 'faux';
             } else if (type === 'SHORT' || type === 'NUMBER') {
                 item.validAnswers = block.querySelector('.valid-answers')?.value || "";
+            } else if (type === 'TITLE') {
+                item.titleText = block.querySelector('.title-widget-input')?.value || item.enonce || "";
             } else if (type === 'BOX_NOTE') {
+                item.noteTitle = block.querySelector('.box-note-title')?.value || item.enonce || "Note";
                 item.noteContent = block.querySelector('.box-note-content')?.value || "";
             } else if (type === 'IMAGE') {
+                item.imageTitle = block.querySelector('.image-title-input')?.value || item.enonce || "Illustration";
                 item.imagePath = block.querySelector('.image-path-input')?.value || "";
-            } else if (type === 'SEPARATOR' || type === 'TITLE') {
+            } else if (type === 'SEPARATOR') {
                 // Pas de données supplémentaires
             } else if (isEncType(type)) {
                 item.titreEncadre = item.enonce;
-                item.mode = String(block.querySelector('.enc-mode')?.value || 'TEXT').toUpperCase();
                 item.lignes = getEncRows(block).map((row) => ({
                     label: row.dataset.label || "",
                     subkey: row.dataset.subkey || "",
                     subqid: row.dataset.subqid || createStableQid(),
                     enabled: row.dataset.enabled !== "0",
-                    preview: row.querySelector('.enc-expected')?.value || "",
-                    selectOptions: row.querySelector('.enc-select-options')?.value || "",
-                    selectCorrect: row.querySelector('.enc-select-correct')?.value || ""
+                    preview: row.querySelector('.enc-expected')?.value || ""
                 }));
             }
 
@@ -1836,8 +2106,12 @@
         document.getElementById('quiz-content').innerHTML = '';
         qCount = 0;
 
+        const docGroups = {};
         data.questions.forEach((q) => {
             const type = q.type || 'SHORT';
+            if (!ALLOWED_TYPES.has(type)) {
+                throw new Error(`Type de bloc non supporté dans le draft: ${type}`);
+            }
 
             if (type === 'DOC') {
                 const contentDiv = createBlockSkeleton('DOC', null);
@@ -1847,9 +2121,25 @@
                 safeSetValue(block.querySelector('.doc-content'), q.docContent || "");
                 return;
             }
+            if (type === 'DOCGROUP') {
+                addBlock('DOCGROUP', null);
+                const blocks = document.querySelectorAll('.question-block[data-type="DOCGROUP"]');
+                const block = blocks[blocks.length - 1];
+                if (!block) return;
+                const gid = q.docgroupId || `dg_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+                block.dataset.docgroupId = gid;
+                docGroups[gid] = block;
+                safeSetValue(block.querySelector('.docgroup-title'), q.docTitle || "");
+                safeSetValue(block.querySelector('.docgroup-content'), q.docContent || "");
+                return;
+            }
 
-            addBlock(type, null);
-            const blocks = document.querySelectorAll('.question-block:not(.doc-block)');
+            const parentId = String(q.parentDocGroup || "").trim();
+            const parentBlock = parentId ? docGroups[parentId] : null;
+            const parentMount = parentBlock ? parentBlock.querySelector(".docgroup-questions") : null;
+            addBlock(type, null, parentMount || null, parentId);
+            const selector = parentBlock ? '.question-block.docgroup-linked' : '.question-block:not(.doc-block)';
+            const blocks = document.querySelectorAll(selector);
             const block = blocks[blocks.length - 1];
             if (!block) return;
             if (q.qid) block.dataset.qid = q.qid;
@@ -1882,18 +2172,21 @@
                 if (fauxEl) fauxEl.checked = !isVrai;
             } else if (type === 'SHORT' || type === 'NUMBER') {
                 safeSetValue(block.querySelector('.valid-answers'), q.validAnswers || "");
+            } else if (type === 'TITLE') {
+                safeSetValue(block.querySelector('.title-widget-input'), q.titleText || q.enonce || "Titre de section");
             } else if (type === 'BOX_NOTE') {
+                safeSetValue(block.querySelector('.box-note-title'), q.noteTitle || q.enonce || "Note");
                 safeSetValue(block.querySelector('.box-note-content'), q.noteContent || "");
             } else if (type === 'IMAGE') {
+                safeSetValue(block.querySelector('.image-title-input'), q.imageTitle || q.enonce || "Illustration");
                 const input = block.querySelector('.image-path-input');
                 safeSetValue(input, q.imagePath || "");
                 if (input) updateImagePreview(input);
-            } else if (type === 'SEPARATOR' || type === 'TITLE') {
+            } else if (type === 'SEPARATOR') {
                 // Rien de spécifique
             } else if (isEncType(type)) {
                 const rows = getEncRows(block);
                 const savedRows = Array.isArray(q.lignes) ? q.lignes : [];
-                setEncMode(block, q.mode || "TEXT");
                 if (savedRows.length === 0) {
                     rows.forEach((row) => setEncRowEnabled(row, true));
                     return;
@@ -1906,8 +2199,6 @@
                     row.dataset.subkey = line.subkey || row.dataset.subkey || normalizeFrameKey(line.label);
                     setEncRowEnabled(row, line.enabled !== false);
                     safeSetValue(row.querySelector('.enc-expected'), line.preview || "");
-                    safeSetValue(row.querySelector('.enc-select-options'), line.selectOptions || "");
-                    safeSetValue(row.querySelector('.enc-select-correct'), line.selectCorrect || "");
                 });
             }
         });
@@ -1957,6 +2248,12 @@
 
         const isDraftJSON = Array.isArray(data.questions) && data.meta && data.meta.version === "master-quiz-auto";
         if (isDraftJSON) {
+            const badDraftTypes = data.questions
+                .map((q, idx) => ({ type: String(q?.type || ""), idx }))
+                .filter((x) => x.type && !ALLOWED_TYPES.has(x.type));
+            if (badDraftTypes.length) {
+                throw new Error(`Import refusé : type non supporté (${badDraftTypes.map((x) => `${x.type} item ${x.idx + 1}`).join(", ")}).`);
+            }
             restoreDraftJSON(data);
             showNotification("✅ Draft importé avec succès", "success");
             return;
@@ -2077,7 +2374,9 @@
 
             safeSetValue(block.querySelector('.q-enonce'), imported?.enonce || group.title);
             safeSetValue(block.querySelector('.q-comp'), imported?.competence || group.competence);
-            const totalPoints = imported?.points ?? group.rows.reduce((sum, r) => sum + (parseFloat(r.item.bareme || r.item.points || 0) || 0), 0);
+            const totalPoints = (imported && typeof imported.points !== "undefined")
+                ? imported.points
+                : group.rows.reduce((sum, r) => sum + (parseFloat(r.item.bareme || r.item.points || 0) || 0), 0);
             safeSetValue(block.querySelector('.q-points'), Number(totalPoints.toFixed(2)));
             const firstExp = imported?.explanation || getFlexibleText(group.rows[0]?.item, ['reponseAttendue', 'explication', 'correction', 'justification']);
             safeSetValue(block.querySelector('.q-explain'), firstExp);
@@ -2100,9 +2399,21 @@
         });
 
         singles.forEach(({ item, idx }) => {
+            const rawType = String(item.type || "").toLowerCase();
+            if (rawType === "doc" || rawType === "docgroup") {
+                addBlock("DOCGROUP", null);
+                const blocks = document.querySelectorAll('.question-block[data-type="DOCGROUP"]');
+                const block = blocks[blocks.length - 1];
+                if (!block) return;
+                block.dataset.docgroupId = item.docId || item.qid || `dg_${Date.now()}_${idx}`;
+                safeSetValue(block.querySelector('.docgroup-title'), getFlexibleText(item, ['docTitle', 'title', 'titre']));
+                safeSetValue(block.querySelector('.docgroup-content'), getFlexibleText(item, ['docContent', 'content', 'texte']));
+                return;
+            }
+
             const inType = (item.inputType || "").toLowerCase();
             if (typeof item.autocorrect === "undefined") {
-                if (inType === "select" || inType === "checkbox" || inType === "vrai_faux") {
+                if (inType === "select" || inType === "checkbox" || inType === "vrai_faux" || inType === "number") {
                     item.autocorrect = true;
                 } else {
                     item.autocorrect = false;
@@ -2115,7 +2426,7 @@
                 const asArray = Array.isArray(rawCorrect)
                     ? rawCorrect.filter(Boolean)
                     : String(rawCorrect || "").split(";").map((s) => s.trim()).filter(Boolean);
-                type = asArray.length > 1 ? "QCM" : "QCU";
+                type = (asArray.length > 1 || String(item.type || "").toUpperCase() === "QCM") ? "QCM" : "QCU";
             }
             else if (inType === "select") type = "SELECT";
             else if (inType === "vrai_faux") type = "VF";
@@ -2145,7 +2456,7 @@
                 const correctSet = new Set(
                     (Array.isArray(item.reponseCorrecte)
                         ? item.reponseCorrecte
-                        : String((item.reponseCorrecte ?? item.correct ?? item.answer) || "").split(";")
+                        : String(item.reponseCorrecte ?? item.correct ?? item.answer ?? "").split(";")
                     ).map((s) => String(s || "").trim()).filter(Boolean)
                 );
 
@@ -2280,7 +2591,7 @@
             const blocks = Array.from(document.querySelectorAll('.question-block'));
             blocks.forEach((block, index) => {
                 const type = block.dataset.type;
-                if (type === "DOC" || isNonExportWidgetType(type)) return;
+                if (type === "DOC" || type === "DOCGROUP" || isNonExportWidgetType(type)) return;
 
                 const qid = String(block.dataset.qid || "").trim();
                 if (!qid) {
@@ -2344,7 +2655,11 @@
                 if (answerType === "QCU" || answerType === "VF") {
                     const radios = Array.from(root.querySelectorAll(`input[type="radio"].reponse-eleve[data-qid="${qid}"]`));
                     if (radios.length < 2) {
-                        errors.push(`${answerType} (${qid}) : radios manquantes côté élève.`);
+                        if (answerType === "QCU") {
+                            errors.push(`QCU : au moins 2 options non vides requises (${qid}).`);
+                        } else {
+                            errors.push(`${answerType} (${qid}) : radios manquantes côté élève.`);
+                        }
                         return;
                     }
                     radios.forEach((radio) => {
@@ -2355,7 +2670,7 @@
                 } else if (answerType === "QCM") {
                     const checks = Array.from(root.querySelectorAll(`input[type="checkbox"].reponse-eleve[data-qid="${qid}"]`));
                     if (checks.length < 2) {
-                        errors.push(`QCM (${qid}) : checkboxes manquantes côté élève.`);
+                        errors.push(`QCM (${qid}) : au moins 2 checkbox attendues côté élève.`);
                         return;
                     }
                     checks.forEach((chk) => {
@@ -2394,6 +2709,11 @@
         const devoirId = document.getElementById('devoir-id').value.trim() || `quiz_${Date.now()}`;
         const titre = document.getElementById('titre-devoir').value || "Devoir";
         const niveau = document.getElementById('niveau-cible').value || "Bac Pro";
+        const selfCheck = runExportSelfCheck();
+        if (!selfCheck.ok) {
+            showExportErrors("❌ Export bloqué : self-check invalide", selfCheck.errors);
+            return;
+        }
         const preCheck = assertAnswerBindings({ phase: "pre-export" });
         if (!preCheck.ok) {
             showExportErrors("❌ Export bloqué : incohérences qid détectées", preCheck.errors);
@@ -2444,6 +2764,25 @@
             if (type === 'DOC') {
                 const docTitle = block.querySelector('.doc-title-input').value;
                 const content = block.querySelector('.doc-content').value.replace(/\n/g, '<br>');
+                studentHtmlQuestions += `
+                    <div class="document-box">
+                        <h4>${docTitle}</h4>
+                        <p>${content}</p>
+                    </div>
+                `;
+                return;
+            }
+            if (type === 'DOCGROUP') {
+                const docId = block.dataset.docgroupId || `dg_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+                const docTitle = (block.querySelector('.docgroup-title')?.value || "").trim();
+                const contentPlain = (block.querySelector('.docgroup-content')?.value || "").trim();
+                const content = contentPlain.replace(/\n/g, '<br>');
+                blueprint.content.push({
+                    type: "doc",
+                    docId: docId,
+                    docTitle: docTitle,
+                    docContent: contentPlain
+                });
                 studentHtmlQuestions += `
                     <div class="document-box">
                         <h4>${docTitle}</h4>
@@ -2538,8 +2877,11 @@
                     bareme: bareme,
                     inputType: type === "SELECT" ? "select" : "checkbox",
                     autocorrect: true,
+                    besoinCorrectionManuelle: false,
                     questionText: enoncePlain,
                     reponseCorrecte: isQcm ? correctVals : correctVal,
+                    reponseEleve: isQcm ? [] : "",
+                    correctionMode: isQcm ? "set_exact" : "single_exact",
                     reponseAttendue: finalExplanation,
                     options: options
                 });
@@ -2603,7 +2945,7 @@
                 const rawVal = block.querySelector('.valid-answers').value;
                 const accepted = rawVal.split(';').map(s => s.trim()).filter(s => s);
                 const isNum = type === 'NUMBER';
-                const shouldAutocorrect = false;
+                const shouldAutocorrect = isNum;
 
                 blueprint.content.push({
                     type: "question",
@@ -2662,7 +3004,9 @@
                         besoinCorrectionManuelle: true,
                         questionText: `${enoncePlain} — ${lineLabel}`,
                         reponseCorrecte: [],
-                        reponseAttendue: explanation
+                        reponseEleve: "",
+                        reponseAttendue: explanation,
+                        explication: explanation
                     });
                     trackExportQid(subqid, `${type} ligne ${idx + 1}`);
                     expectedAnswerBindings.push({ qid: subqid, answerType: "OPEN" });
@@ -2705,6 +3049,10 @@
         blueprint.items = blueprint.content;
 
         const finalStudentHTML = generateStudentTemplate(titre, devoirId, studentHtmlQuestions, blueprint.competences, blueprint);
+        if (finalStudentHTML.includes("${")) {
+            alert("Export cassé : template non rendu");
+            return;
+        }
 
         downloadFile(JSON.stringify(blueprint, null, 4), `${devoirId}_blueprint.json`, 'application/json');
         showNotification(`📄 Blueprint téléchargé ! Fichier élève dans 2 secondes...`, 'info');
