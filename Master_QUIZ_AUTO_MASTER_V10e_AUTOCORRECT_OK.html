@@ -467,7 +467,7 @@
 
 <div class="tools-panel">
     <button class="btn-tool btn-qcm" onclick="addBlock('QCU')">🔘 QCU</button>
-    <button class="btn-tool btn-qcm" onclick="addBlock('QCM')">☑️ QCM</button>
+    <button class="btn-tool btn-qcm" onclick="addBlock('QCM')">☑️ QRM</button>
     <button class="btn-tool btn-vf" onclick="addBlock('VF')">✅ Vrai/Faux</button>
     <button class="btn-tool btn-text" onclick="addBlock('NUMBER')">🔢 Nombre</button>
     <button class="btn-tool btn-text" onclick="addBlock('SHORT')">✍️ Texte</button>
@@ -1002,7 +1002,7 @@
         const normalized = (wanted === "TEXTE" || wanted === "TEXTE_LIBRE") ? "SHORT" : wanted;
         const chosen = allowed.includes(normalized) ? normalized : "SHORT";
         if (typed !== null && normalized === "QCM") {
-            alert("QCM n'est pas proposé dans ce menu. Utilisez QCU ou Liste déroulante ici.");
+            alert("QRM n'est pas proposé dans ce menu. Utilisez QCU ou Liste déroulante ici.");
         } else if (typed !== null && !allowed.includes(normalized)) {
             showNotification(`Type non reconnu, Texte appliqué (types supportés: ${allowed.map((t) => labels[t]).join(", ")})`, "info");
         }
@@ -1018,7 +1018,7 @@
         if (typed === null) return null;
         const wanted = String(typed || "QCU").trim().toUpperCase();
         if (wanted === "QCM") {
-            alert("QCM n'est pas proposé dans les questions liées du DocGroup. Utilisez QCU, VF, SELECT, NUMBER, SHORT, ITAMAMI, PAD ou QQOQCP.");
+            alert("QRM n'est pas proposé dans les questions liées du DocGroup. Utilisez QCU, VF, SELECT, NUMBER, SHORT, ITAMAMI, PAD ou QQOQCP.");
             return null;
         }
         if (!allowed.includes(wanted)) {
@@ -1063,7 +1063,7 @@
             const isQcm = type === 'QCM';
             content.innerHTML = `
                 <div class="config-zone">
-                    <span class="config-label">📝 Options (${type === "SELECT" ? "Liste déroulante : cochez la bonne réponse" : (isQcm ? "QCM : cochez les bonnes réponses" : "QCU : cochez la bonne réponse")})</span>
+                    <span class="config-label">📝 Options (${type === "SELECT" ? "Liste déroulante : cochez la bonne réponse" : (isQcm ? "QRM : cochez les bonnes réponses" : "QCU : cochez la bonne réponse")})</span>
                     <div id="${containerId}"></div>
                     <button onclick="addOption('${containerId}', '${isQcm ? "multi" : "single"}')" style="margin-top:10px;font-size:0.85em;cursor:pointer;background:linear-gradient(135deg, #e9ecef, #dee2e6);border:none;padding:6px 12px;border-radius:6px;font-weight:bold;color:#495057;transition:all 0.2s;">+ Ajouter une option</button>
                 </div>
@@ -1359,8 +1359,8 @@
                 const rows = Array.from(block.querySelectorAll('.option-row'));
                 const valid = rows.filter((row) => String(row.querySelector('.opt-text')?.value || "").trim());
                 const checked = rows.filter((row) => row.querySelector('.correct-check')?.checked && String(row.querySelector('.opt-text')?.value || "").trim());
-                if (valid.length < 2) errors.push(`QCM numéro ${qIdx} (${block.dataset.qid || "qid_manquant"}) doit avoir au moins 2 options non vides`);
-                if (checked.length < 1) errors.push(`QCM numéro ${qIdx} (${block.dataset.qid || "qid_manquant"}) doit avoir au moins 1 bonne réponse`);
+                if (valid.length < 2) errors.push(`QRM numéro ${qIdx} (${block.dataset.qid || "qid_manquant"}) doit avoir au moins 2 options non vides`);
+                if (checked.length < 1) errors.push(`QRM numéro ${qIdx} (${block.dataset.qid || "qid_manquant"}) doit avoir au moins 1 bonne réponse`);
             }
 
             if (type === "SELECT") {
@@ -1871,7 +1871,7 @@ ${embeddedBlueprintScript}
                 ],
                 formats_reponses: {
                     QCU: "1 seule bonne réponse dans reponseCorrecte",
-                    QCM: "Plusieurs bonnes réponses possibles dans reponseCorrecte (liste d'identifiants d'options)",
+                    QCM: "QRM (réponses multiples) : plusieurs bonnes réponses dans reponseCorrecte (liste d'identifiants). Notation par discordance : score = max(0, barème − 0.5 × erreurs)",
                     SELECT: "1 seule bonne réponse dans reponseCorrecte (id value d'option)",
                     VF: "Justifier dans reponseAttendue pourquoi vrai ou faux + référence cours",
                     SHORT: "Accepter plusieurs formulations séparées par ; dans reponseCorrecte",
@@ -1932,7 +1932,8 @@ ${embeddedBlueprintScript}
                     questionText: "[ÉNONCÉ À REMPLIR]",
                     reponseCorrecte: type === 'QCM' ? ["[ID_OPTION_1]", "[ID_OPTION_2]"] : "[ID_OPTION_CORRECTE]",
                     reponseEleve: type === 'QCM' ? [] : "",
-                    correctionMode: type === 'QCM' ? "set_exact" : "single_exact",
+                    correctionMode: type === 'QCM' ? "discordance" : "single_exact",
+                    penalite: type === 'QCM' ? 0.5 : undefined,
                     reponseAttendue: "[EXPLICATION DÉTAILLÉE À RÉDIGER]",
                     explication: "[EXPLICATION DÉTAILLÉE À RÉDIGER]",
                     options: emptyOptions
@@ -2449,7 +2450,7 @@ ${embeddedBlueprintScript}
                 const containerId = `auto_${Date.now()}_${idx}`;
                 contentDiv.innerHTML = `
                     <div class="config-zone">
-                        <span class="config-label">📝 Options importées (${type === "SELECT" ? "liste déroulante" : type})</span>
+                        <span class="config-label">📝 Options importées (${type === "SELECT" ? "liste déroulante" : (type === "QCM" ? "QRM" : type)})</span>
                         <div id="${containerId}"></div>
                         <button onclick="addOption('${containerId}', '${type === "QCM" ? "multi" : "single"}')" style="margin-top:10px;font-size:0.85em;cursor:pointer;background:#eee;border:none;padding:5px 10px;border-radius:4px;">+ Ajouter option</button>
                     </div>
@@ -2872,7 +2873,7 @@ ${embeddedBlueprintScript}
                 const explanation = block.querySelector('.q-explain').value.trim();
                 const finalExplanation = explanation || correctText;
 
-                blueprint.content.push({
+                const blueprintItem = {
                     type: "question",
                     qid: qidBase,
                     label: qCounter.toString(),
@@ -2884,10 +2885,12 @@ ${embeddedBlueprintScript}
                     questionText: enoncePlain,
                     reponseCorrecte: isQcm ? correctVals : correctVal,
                     reponseEleve: isQcm ? [] : "",
-                    correctionMode: isQcm ? "set_exact" : "single_exact",
+                    correctionMode: isQcm ? "discordance" : "single_exact",
                     reponseAttendue: finalExplanation,
                     options: options
-                });
+                };
+                if (isQcm) blueprintItem.penalite = 0.5;
+                blueprint.content.push(blueprintItem);
                 trackExportQid(qidBase, type);
                 expectedAnswerBindings.push({ qid: qidBase, answerType: type === "SELECT" ? "SELECT" : (isQcm ? "QCM" : "QCU") });
 
@@ -2901,10 +2904,12 @@ ${embeddedBlueprintScript}
                         </div>
                     `;
                 } else {
+                    const consigneQrm = isQcm ? `<p class="qrm-consigne" style="font-style:italic;color:#555;font-size:0.9em;margin:4px 0 8px;">⚠️ Plusieurs réponses possibles. Chaque erreur retire 0,5 point.</p>` : "";
                     studentHtmlQuestions += `
                         <div class="question-block">
                             <span class="q-label">${qCounter}</span><span class="q-comp">${competence}</span><span class="q-points">${bareme} pts</span>
                             <div class="q-text">${enonce}</div>
+                            ${consigneQrm}
                             <div class="checkbox-group">
                     `;
                     options.forEach(opt => {
