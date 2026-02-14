@@ -590,6 +590,8 @@
                     const subqid = row.dataset.subqid || `${ctx.qidBase}_${this.slug}_${subkey}`;
                     row.dataset.subqid = subqid;
                     const lineLabel = row.dataset.label || `Ligne ${idx + 1}`;
+                    const lineAnswer = row.querySelector('.enc-expected')?.value?.trim() || "";
+                    const finalReponse = lineAnswer || explanation;
                     const item = {
                         type: "question",
                         qid: subqid,
@@ -601,8 +603,8 @@
                         besoinCorrectionManuelle: true,
                         questionText: `${ctx.enoncePlain} — ${lineLabel}`,
                         reponseCorrecte: [],
-                        reponseAttendue: explanation,
-                        explication: explanation,
+                        reponseAttendue: finalReponse,
+                        explication: explanation || finalReponse,
                         reponseEleve: ""
                     };
                     return item;
@@ -653,7 +655,8 @@
                         label: String(i.questionText || "").split("—")[1]?.trim() || "",
                         subqid: i.qid || createStableQid(),
                         enabled: true,
-                        preview: Array.isArray(i.reponseCorrecte) ? i.reponseCorrecte.join("; ") : String(i.reponseCorrecte || "")
+                        preview: getFlexibleText(i, ['reponseAttendue', 'explication', 'correction', 'justification'])
+                            || (Array.isArray(i.reponseCorrecte) ? i.reponseCorrecte.join("; ") : String(i.reponseCorrecte || ""))
                     }))
                 };
             }
@@ -2993,6 +2996,8 @@ ${embeddedBlueprintScript}
                     const subqid = row.dataset.subqid || createStableQid();
                     row.dataset.subqid = subqid;
                     const subLabel = `${qCounter}${String.fromCharCode(97 + idx)}`;
+                    const lineAnswer = row.querySelector('.enc-expected')?.value?.trim() || "";
+                    const finalReponse = lineAnswer || explanation;
                     blueprint.content.push({
                         type: "question",
                         qid: subqid,
@@ -3005,8 +3010,8 @@ ${embeddedBlueprintScript}
                         questionText: `${enoncePlain} — ${lineLabel}`,
                         reponseCorrecte: [],
                         reponseEleve: "",
-                        reponseAttendue: explanation,
-                        explication: explanation
+                        reponseAttendue: finalReponse,
+                        explication: explanation || finalReponse
                     });
                     trackExportQid(subqid, `${type} ligne ${idx + 1}`);
                     expectedAnswerBindings.push({ qid: subqid, answerType: "OPEN" });
