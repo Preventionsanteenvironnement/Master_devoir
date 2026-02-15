@@ -3142,6 +3142,7 @@ ${embeddedBlueprintScript}
             return;
         }
 
+        // ── FORMAT 1 : Draft JSON du Master (data.questions + data.meta.version) ──
         const isDraftJSON = Array.isArray(data.questions) && data.meta && data.meta.version === "master-quiz-auto";
         if (isDraftJSON) {
             const badDraftTypes = data.questions
@@ -3155,8 +3156,20 @@ ${embeddedBlueprintScript}
             return;
         }
 
+        // ── FORMAT 2 : Tableau brut [{type:"question",...}, ...] (collé directement) ──
+        if (Array.isArray(data)) {
+            console.log("📋 Import tableau brut détecté (" + data.length + " éléments) — conversion en blueprint...");
+            data = {
+                titre: "",
+                devoirId: "",
+                niveau: "",
+                options: {},
+                content: data
+            };
+        }
+
         if (!data.content || !Array.isArray(data.content)) {
-            throw new Error("Format JSON invalide: content[] manquant.");
+            throw new Error("Format JSON invalide: content[] manquant. Collez un blueprint, un draft, ou un tableau de questions [{...}, ...]");
         }
 
         document.getElementById("quiz-content").innerHTML = "";
