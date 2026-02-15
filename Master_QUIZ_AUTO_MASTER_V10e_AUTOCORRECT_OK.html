@@ -452,6 +452,16 @@
             <label style="font-weight:400; font-size:0.85em; cursor:pointer; display:flex; align-items:center; gap:4px;">
                 <input type="checkbox" id="opt-recepisse"> 🧾 Récépissé imprimable
             </label>
+            <label style="font-weight:400; font-size:0.85em; cursor:pointer; display:flex; align-items:center; gap:4px;">
+                <input type="checkbox" id="opt-2chance"> 🔄 2ème chance (code prof)
+            </label>
+            <input type="text" id="opt-2chance-code" placeholder="Code prof (4 chiffres)" maxlength="4" pattern="[0-9]{4}"
+                style="width:130px; padding:3px 8px; border:1px solid #cbd5e1; border-radius:4px; font-size:0.85em; display:none;">
+            <label style="font-weight:400; font-size:0.85em; cursor:pointer; display:flex; align-items:center; gap:4px;">
+                <input type="checkbox" id="opt-chrono"> ⏱️ Chronomètre
+            </label>
+            <input type="number" id="opt-chrono-minutes" placeholder="Minutes" min="1" max="180"
+                style="width:90px; padding:3px 8px; border:1px solid #cbd5e1; border-radius:4px; font-size:0.85em; display:none;">
         </div>
     </div>
 
@@ -1802,9 +1812,57 @@
             .pse-recepisse-box { box-shadow: none !important; max-width: 100% !important; }
             .pse-recepisse-box .btn-print { display: none !important; }
         }
+        /* ── Chronomètre ── */
+        .pse-chrono-bar {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 800;
+            background: #1e293b; color: #fff; display: none;
+            align-items: center; justify-content: center; gap: 10px;
+            padding: 6px 16px; font-size: 0.9em; font-weight: 600;
+        }
+        .pse-chrono-bar.visible { display: flex; }
+        .pse-chrono-bar.warning { background: #dc2626; animation: pulse-chrono 1s infinite; }
+        @keyframes pulse-chrono { 0%,100%{opacity:1;} 50%{opacity:0.7;} }
+        .pse-chrono-bar + .pse-overlay { top: 38px; }
+        body.has-chrono { padding-top: 38px; }
+        /* ── 2ème chance overlay ── */
+        .pse-2chance-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6); z-index: 9997;
+            display: none; align-items: center; justify-content: center; padding: 20px;
+        }
+        .pse-2chance-overlay.active { display: flex; }
+        .pse-2chance-box {
+            background: #fff; border-radius: 16px; padding: 30px; max-width: 420px;
+            text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .pse-2chance-box input {
+            width: 160px; text-align: center; font-size: 1.5em; letter-spacing: 8px;
+            padding: 10px; border: 2px solid #cbd5e1; border-radius: 10px; margin: 16px 0;
+        }
     </style>
 </head>
 <body data-id-exercice="${devoirId}">
+
+<!-- ── CHRONOMÈTRE (discret, en haut) ── -->
+<div class="pse-chrono-bar" id="pse-chrono-bar">
+    <span>⏱️</span>
+    <span id="pse-chrono-display">--:--</span>
+    <span id="pse-chrono-label" style="font-weight:400; font-size:0.85em; opacity:0.8;">restantes</span>
+</div>
+
+<!-- ── 2ÈME CHANCE (code prof) ── -->
+<div class="pse-2chance-overlay" id="pse-2chance-overlay">
+    <div class="pse-2chance-box">
+        <h2>🔄 2ème tentative</h2>
+        <p style="color:#64748b; margin:8px 0 16px;">Votre copie a déjà été envoyée.<br>Pour une 2ème tentative, entrez le <b>code enseignant</b>.</p>
+        <input type="text" id="pse-2chance-input" placeholder="····" maxlength="4" autocomplete="off" inputmode="numeric">
+        <p class="err" id="pse-2chance-err" style="color:#dc2626; font-size:0.85em; display:none;">Code incorrect</p>
+        <div style="display:flex; gap:10px; justify-content:center; margin-top:12px;">
+            <button onclick="document.getElementById('pse-2chance-overlay').classList.remove('active')" style="padding:10px 20px; border:1px solid #cbd5e1; background:#fff; border-radius:8px; cursor:pointer;">Annuler</button>
+            <button id="pse-btn-2chance-valider" style="padding:10px 20px; background:#6366f1; color:#fff; border:none; border-radius:8px; cursor:pointer; font-weight:600;">Valider</button>
+        </div>
+    </div>
+</div>
 
 <!-- ── OVERLAY IDENTIFICATION ── -->
 <div class="pse-overlay" id="pse-overlay-id">
@@ -1934,6 +1992,12 @@
             // Enregistrer l'heure de début
             const devoirId = document.body.dataset.idExercice || 'unknown';
             localStorage.setItem('devoir_start_time_' + devoirId, Date.now().toString());
+
+            // ── Chronomètre (si activé) ──
+            const opts = getAntiCheatOptions();
+            if (opts.chrono && opts.chronoMinutes > 0) {
+                startChrono(opts.chronoMinutes);
+            }
         });
 
         // Auto-resize textareas
@@ -1950,6 +2014,99 @@
     function autoResize(el) {
         el.style.height = 'auto';
         el.style.height = el.scrollHeight + 'px';
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // CHRONOMÈTRE
+    // ═══════════════════════════════════════════════════════
+    let chronoInterval = null;
+    let chronoSecondsLeft = 0;
+
+    function startChrono(minutes) {
+        const bar = document.getElementById('pse-chrono-bar');
+        const display = document.getElementById('pse-chrono-display');
+        bar.classList.add('visible');
+        document.body.classList.add('has-chrono');
+        chronoSecondsLeft = minutes * 60;
+
+        chronoInterval = setInterval(() => {
+            chronoSecondsLeft--;
+            if (chronoSecondsLeft <= 0) {
+                clearInterval(chronoInterval);
+                display.textContent = "00:00";
+                bar.classList.add('warning');
+                document.getElementById('pse-chrono-label').textContent = "TEMPS ÉCOULÉ !";
+                // Envoi automatique
+                if (typeof window.tenterEnvoi === 'function') window.tenterEnvoi();
+                return;
+            }
+            const m = Math.floor(chronoSecondsLeft / 60);
+            const s = chronoSecondsLeft % 60;
+            display.textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+            // Alerte visuelle dans les 2 dernières minutes
+            if (chronoSecondsLeft <= 120 && !bar.classList.contains('warning')) {
+                bar.classList.add('warning');
+            }
+        }, 1000);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // 2ÈME CHANCE
+    // ═══════════════════════════════════════════════════════
+    let isSecondeChance = false;
+
+    function demander2eChance() {
+        const opts = getAntiCheatOptions();
+        if (!opts.secondeChance || !opts.codeProf) {
+            alert("La 2ème tentative n'est pas activée pour cet exercice.");
+            return;
+        }
+        document.getElementById('pse-2chance-overlay').classList.add('active');
+        const input = document.getElementById('pse-2chance-input');
+        input.value = '';
+        input.focus();
+    }
+
+    // Event listeners pour 2ème chance
+    document.addEventListener('DOMContentLoaded', function() {
+        const btn2 = document.getElementById('pse-btn-2chance-valider');
+        const input2 = document.getElementById('pse-2chance-input');
+        if (btn2) {
+            btn2.addEventListener('click', valider2eChance);
+        }
+        if (input2) {
+            input2.addEventListener('keypress', (e) => { if (e.key === 'Enter') valider2eChance(); });
+        }
+    });
+
+    function valider2eChance() {
+        const opts = getAntiCheatOptions();
+        const input = document.getElementById('pse-2chance-input');
+        const err = document.getElementById('pse-2chance-err');
+        const code = (input.value || '').trim();
+        if (code === opts.codeProf) {
+            isSecondeChance = true;
+            document.getElementById('pse-2chance-overlay').classList.remove('active');
+            // Réactiver le bouton d'envoi
+            const btn = document.getElementById('btn-envoyer');
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = '📤 Envoyer (2ème tentative)';
+                btn.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
+            }
+            // Reset le chrono si actif
+            if (opts.chrono && opts.chronoMinutes > 0) {
+                if (chronoInterval) clearInterval(chronoInterval);
+                const bar = document.getElementById('pse-chrono-bar');
+                bar.classList.remove('warning');
+                document.getElementById('pse-chrono-label').textContent = 'restantes';
+                startChrono(opts.chronoMinutes);
+            }
+        } else {
+            err.style.display = 'block';
+            input.classList.add('shake');
+            setTimeout(() => input.classList.remove('shake'), 400);
+        }
     }
 
     // ── ANTI-TRICHE : Sortie de page ──
@@ -2088,21 +2245,32 @@
             try {
                 const classeLS = (localStorage.getItem('userClasse') || '').trim();
                 const elevePayload = classeLS
-                    ? { code: code, classe: classeLS, blueprintEmbedded: true, focus: focus }
-                    : { code: code, blueprintEmbedded: true, focus: focus };
+                    ? { code: code, classe: classeLS, blueprintEmbedded: true, focus: focus, secondeChance: isSecondeChance }
+                    : { code: code, blueprintEmbedded: true, focus: focus, secondeChance: isSecondeChance };
                 await window.envoyerCopie(code, { external: focus.pasteBlocked }, elevePayload);
                 btn.textContent = '✅ Envoyé !';
                 btn.style.background = 'linear-gradient(135deg, #2ecc71, #27ae60)';
+                // Arrêter le chrono
+                if (chronoInterval) clearInterval(chronoInterval);
 
                 // Afficher le récépissé
                 showRecepisse(code, totalQ, answered);
             } catch(e) {
                 console.error(e);
                 if (e.message && e.message.includes('déjà envoyé')) {
-                    // Doublon : copie déjà soumise → bloquer définitivement
-                    btn.textContent = '⛔ Déjà envoyé';
-                    btn.style.background = '#94a3b8';
-                    alert(e.message);
+                    const opts = getAntiCheatOptions();
+                    if (opts.secondeChance && opts.codeProf && !isSecondeChance) {
+                        // 2ème chance disponible
+                        btn.textContent = '🔄 Demander une 2ème tentative';
+                        btn.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
+                        btn.disabled = false;
+                        btn.onclick = function() { demander2eChance(); };
+                    } else {
+                        // Pas de 2ème chance ou déjà utilisée
+                        btn.textContent = '⛔ Déjà envoyé';
+                        btn.style.background = '#94a3b8';
+                        alert(e.message);
+                    }
                 } else {
                     alert('Erreur: ' + e.message);
                     btn.disabled = false;
@@ -2427,7 +2595,11 @@ ${embeddedBlueprintScript}
             },
             questions,
             options: {
-                recepisse: !!document.getElementById('opt-recepisse')?.checked
+                recepisse: !!document.getElementById('opt-recepisse')?.checked,
+                secondeChance: !!document.getElementById('opt-2chance')?.checked,
+                codeProf: document.getElementById('opt-2chance-code')?.value || "",
+                chrono: !!document.getElementById('opt-chrono')?.checked,
+                chronoMinutes: parseInt(document.getElementById('opt-chrono-minutes')?.value) || 0
             }
         };
 
@@ -2450,6 +2622,18 @@ ${embeddedBlueprintScript}
         // Restaurer les options
         const recepisseCheckbox = document.getElementById('opt-recepisse');
         if (recepisseCheckbox) recepisseCheckbox.checked = !!opts.recepisse;
+        const chanceCheckbox = document.getElementById('opt-2chance');
+        if (chanceCheckbox) {
+            chanceCheckbox.checked = !!opts.secondeChance;
+            document.getElementById('opt-2chance-code').style.display = opts.secondeChance ? 'inline-block' : 'none';
+            document.getElementById('opt-2chance-code').value = opts.codeProf || "";
+        }
+        const chronoCheckbox = document.getElementById('opt-chrono');
+        if (chronoCheckbox) {
+            chronoCheckbox.checked = !!opts.chrono;
+            document.getElementById('opt-chrono-minutes').style.display = opts.chrono ? 'inline-block' : 'none';
+            document.getElementById('opt-chrono-minutes').value = opts.chronoMinutes || "";
+        }
         document.getElementById('quiz-content').innerHTML = '';
         qCount = 0;
 
@@ -2615,10 +2799,22 @@ ${embeddedBlueprintScript}
         document.getElementById("titre-devoir").value = (data.titre || "").replace(" [À COMPLÉTER]", "");
         document.getElementById("devoir-id").value = data.devoirId || "";
         document.getElementById("niveau-cible").value = data.niveau || "Bac Pro";
-        // Restaurer l'option récépissé depuis le blueprint
+        // Restaurer les options depuis le blueprint
         const bpOpts = data.options || {};
         const recepisseChk = document.getElementById('opt-recepisse');
         if (recepisseChk) recepisseChk.checked = !!bpOpts.recepisse;
+        const chanceChk2 = document.getElementById('opt-2chance');
+        if (chanceChk2) {
+            chanceChk2.checked = !!bpOpts.secondeChance;
+            document.getElementById('opt-2chance-code').style.display = bpOpts.secondeChance ? 'inline-block' : 'none';
+            document.getElementById('opt-2chance-code').value = bpOpts.codeProf || "";
+        }
+        const chronoChk2 = document.getElementById('opt-chrono');
+        if (chronoChk2) {
+            chronoChk2.checked = !!bpOpts.chrono;
+            document.getElementById('opt-chrono-minutes').style.display = bpOpts.chrono ? 'inline-block' : 'none';
+            document.getElementById('opt-chrono-minutes').value = bpOpts.chronoMinutes || "";
+        }
         showNotification("🔄 Reconstruction en cours...", "info");
 
         setTimeout(() => {
@@ -3088,7 +3284,11 @@ ${embeddedBlueprintScript}
                 antiLeave: true,
                 antiPaste: true,
                 maxLeaves: 2,
-                recepisse: !!document.getElementById('opt-recepisse')?.checked
+                recepisse: !!document.getElementById('opt-recepisse')?.checked,
+                secondeChance: !!document.getElementById('opt-2chance')?.checked,
+                codeProf: document.getElementById('opt-2chance-code')?.value || "",
+                chrono: !!document.getElementById('opt-chrono')?.checked,
+                chronoMinutes: parseInt(document.getElementById('opt-chrono-minutes')?.value) || 0
             },
             content: []
         };
@@ -3436,6 +3636,22 @@ ${embeddedBlueprintScript}
         }
         renderWidgetButtons();
         updateStats();
+
+        // Toggle conditionnel des champs d'options
+        document.getElementById('opt-2chance').addEventListener('change', function() {
+            const codeInput = document.getElementById('opt-2chance-code');
+            codeInput.style.display = this.checked ? 'inline-block' : 'none';
+            if (this.checked && !codeInput.value) {
+                codeInput.value = String(Math.floor(1000 + Math.random() * 9000));
+            }
+            codeInput.focus();
+        });
+        document.getElementById('opt-chrono').addEventListener('change', function() {
+            const minInput = document.getElementById('opt-chrono-minutes');
+            minInput.style.display = this.checked ? 'inline-block' : 'none';
+            if (this.checked && !minInput.value) minInput.value = "30";
+            minInput.focus();
+        });
     });
 </script>
 </body>
