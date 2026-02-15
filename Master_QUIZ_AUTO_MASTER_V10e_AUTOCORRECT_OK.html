@@ -1957,6 +1957,12 @@
             <li>📝 Répondez à <b>toutes les questions</b> avant d'envoyer</li>
             <li>✅ Une fois envoyé, vous ne pourrez <b>pas modifier</b> vos réponses</li>
         </ul>
+        <div id="pse-chrono-warning" style="display:none; margin:16px 0 8px; padding:14px; background:linear-gradient(135deg,#fef3c7,#fffbeb); border:2px solid #f59e0b; border-radius:12px; text-align:center;">
+            <div style="font-size:1.8em; margin-bottom:6px;">⏱️</div>
+            <div style="font-size:1.1em; font-weight:700; color:#92400e;">Épreuve chronométrée</div>
+            <div style="font-size:1.4em; font-weight:800; color:#dc2626; margin:6px 0;" id="pse-chrono-announce">--:--</div>
+            <div style="font-size:0.85em; color:#78716c;">Le chronomètre démarre dès que vous cliquez sur <b>Commencer</b>.<br>L'envoi sera <b>automatique</b> à la fin du temps.</div>
+        </div>
         <button class="btn-accept" id="pse-btn-accepter">J'ai compris, commencer l'évaluation</button>
     </div>
 </div>
@@ -2055,6 +2061,14 @@
             // Passer à l'écran d'avertissement
             document.getElementById('pse-step-code').style.display = 'none';
             document.getElementById('pse-step-warning').style.display = 'block';
+
+            // Afficher l'info chrono si activé
+            const optsWarn = getAntiCheatOptions();
+            if (optsWarn.chrono && optsWarn.chronoMinutes > 0) {
+                const m = optsWarn.chronoMinutes;
+                document.getElementById('pse-chrono-warning').style.display = 'block';
+                document.getElementById('pse-chrono-announce').textContent = m + ' minute' + (m > 1 ? 's' : '');
+            }
         }
 
         btnValider.addEventListener('click', validerCode);
@@ -2102,8 +2116,13 @@
         const bar = document.getElementById('pse-chrono-bar');
         const display = document.getElementById('pse-chrono-display');
         bar.classList.add('visible');
+        bar.classList.remove('warning');
         document.body.classList.add('has-chrono');
+        document.getElementById('pse-chrono-label').textContent = 'restantes';
         chronoSecondsLeft = minutes * 60;
+
+        // Affichage immédiat
+        display.textContent = String(minutes).padStart(2, '0') + ':00';
 
         chronoInterval = setInterval(() => {
             chronoSecondsLeft--;
@@ -2111,9 +2130,13 @@
                 clearInterval(chronoInterval);
                 display.textContent = "00:00";
                 bar.classList.add('warning');
-                document.getElementById('pse-chrono-label').textContent = "TEMPS ÉCOULÉ !";
-                // Envoi automatique
-                if (typeof window.tenterEnvoi === 'function') window.tenterEnvoi();
+                document.getElementById('pse-chrono-label').textContent = "TEMPS ÉCOULÉ — envoi automatique !";
+                // Envoi automatique SANS confirmation
+                const code = (document.getElementById('code-eleve').value || '').trim().toUpperCase();
+                const totalQ = (window.__PSE_BLUEPRINT?.content || []).filter(i => i.type === 'question').length;
+                const missing = typeof getUnansweredQuestions === 'function' ? getUnansweredQuestions() : [];
+                const answered = totalQ - missing.length;
+                envoyerDefinitivement(code, totalQ, answered);
                 return;
             }
             const m = Math.floor(chronoSecondsLeft / 60);
@@ -2695,21 +2718,18 @@ ${embeddedBlueprintScript}
         document.getElementById('titre-devoir').value = meta.titre || data.titre || "";
         document.getElementById('devoir-id').value = meta.devoirId || data.devoirId || "";
         document.getElementById('niveau-cible').value = meta.niveau || data.niveau || "";
-        // Restaurer les options
-        const recepisseCheckbox = document.getElementById('opt-recepisse');
-        if (recepisseCheckbox) recepisseCheckbox.checked = !!opts.recepisse;
-        const chanceCheckbox = document.getElementById('opt-2chance');
-        if (chanceCheckbox) {
-            chanceCheckbox.checked = !!opts.secondeChance;
-            document.getElementById('opt-2chance-code').style.display = opts.secondeChance ? 'inline-block' : 'none';
-            document.getElementById('opt-2chance-code').value = opts.codeProf || "";
+        // Restaurer les options (checkbox + classe active sur carte)
+        function restoreOptCard(checkboxId, cardId, isChecked) {
+            const cb = document.getElementById(checkboxId);
+            const card = document.getElementById(cardId);
+            if (cb) cb.checked = !!isChecked;
+            if (card) card.classList.toggle('active', !!isChecked);
         }
-        const chronoCheckbox = document.getElementById('opt-chrono');
-        if (chronoCheckbox) {
-            chronoCheckbox.checked = !!opts.chrono;
-            document.getElementById('opt-chrono-minutes').style.display = opts.chrono ? 'inline-block' : 'none';
-            document.getElementById('opt-chrono-minutes').value = opts.chronoMinutes || "";
-        }
+        restoreOptCard('opt-recepisse', 'card-recepisse', opts.recepisse);
+        restoreOptCard('opt-2chance', 'card-2chance', opts.secondeChance);
+        document.getElementById('opt-2chance-code').value = opts.codeProf || "";
+        restoreOptCard('opt-chrono', 'card-chrono', opts.chrono);
+        document.getElementById('opt-chrono-minutes').value = opts.chronoMinutes || "";
         document.getElementById('quiz-content').innerHTML = '';
         qCount = 0;
 
@@ -2876,21 +2896,19 @@ ${embeddedBlueprintScript}
         document.getElementById("devoir-id").value = data.devoirId || "";
         document.getElementById("niveau-cible").value = data.niveau || "Bac Pro";
         // Restaurer les options depuis le blueprint
+        // Restaurer les options depuis le blueprint
         const bpOpts = data.options || {};
-        const recepisseChk = document.getElementById('opt-recepisse');
-        if (recepisseChk) recepisseChk.checked = !!bpOpts.recepisse;
-        const chanceChk2 = document.getElementById('opt-2chance');
-        if (chanceChk2) {
-            chanceChk2.checked = !!bpOpts.secondeChance;
-            document.getElementById('opt-2chance-code').style.display = bpOpts.secondeChance ? 'inline-block' : 'none';
-            document.getElementById('opt-2chance-code').value = bpOpts.codeProf || "";
+        function restoreOptCard2(checkboxId, cardId, isChecked) {
+            const cb = document.getElementById(checkboxId);
+            const card = document.getElementById(cardId);
+            if (cb) cb.checked = !!isChecked;
+            if (card) card.classList.toggle('active', !!isChecked);
         }
-        const chronoChk2 = document.getElementById('opt-chrono');
-        if (chronoChk2) {
-            chronoChk2.checked = !!bpOpts.chrono;
-            document.getElementById('opt-chrono-minutes').style.display = bpOpts.chrono ? 'inline-block' : 'none';
-            document.getElementById('opt-chrono-minutes').value = bpOpts.chronoMinutes || "";
-        }
+        restoreOptCard2('opt-recepisse', 'card-recepisse', bpOpts.recepisse);
+        restoreOptCard2('opt-2chance', 'card-2chance', bpOpts.secondeChance);
+        document.getElementById('opt-2chance-code').value = bpOpts.codeProf || "";
+        restoreOptCard2('opt-chrono', 'card-chrono', bpOpts.chrono);
+        document.getElementById('opt-chrono-minutes').value = bpOpts.chronoMinutes || "";
         showNotification("🔄 Reconstruction en cours...", "info");
 
         setTimeout(() => {
@@ -3713,20 +3731,44 @@ ${embeddedBlueprintScript}
         renderWidgetButtons();
         updateStats();
 
-        // Toggle conditionnel des champs d'options
-        document.getElementById('opt-2chance').addEventListener('change', function() {
+        // ── Toggle des cartes d'options ──
+        function initOptCard(checkboxId, cardId, onActivate) {
+            const checkbox = document.getElementById(checkboxId);
+            const card = document.getElementById(cardId);
+
+            function syncCard() {
+                card.classList.toggle('active', checkbox.checked);
+                if (checkbox.checked && onActivate) onActivate();
+            }
+
+            // Clic sur la carte (sauf sur inputs texte/number) → toggle la checkbox
+            card.addEventListener('click', function(e) {
+                if (e.target === checkbox) return; // le navigateur gère déjà le toggle
+                if (e.target.tagName === 'INPUT') return; // ne pas interférer avec les champs
+                checkbox.checked = !checkbox.checked;
+                syncCard();
+            });
+
+            // Si clic direct sur la checkbox, le navigateur l'a déjà togglée
+            checkbox.addEventListener('change', function() {
+                syncCard();
+            });
+        }
+
+        initOptCard('opt-recepisse', 'card-recepisse');
+
+        initOptCard('opt-2chance', 'card-2chance', function() {
             const codeInput = document.getElementById('opt-2chance-code');
-            codeInput.style.display = this.checked ? 'inline-block' : 'none';
-            if (this.checked && !codeInput.value) {
+            if (!codeInput.value) {
                 codeInput.value = String(Math.floor(1000 + Math.random() * 9000));
             }
-            codeInput.focus();
+            setTimeout(() => codeInput.select(), 50);
         });
-        document.getElementById('opt-chrono').addEventListener('change', function() {
+
+        initOptCard('opt-chrono', 'card-chrono', function() {
             const minInput = document.getElementById('opt-chrono-minutes');
-            minInput.style.display = this.checked ? 'inline-block' : 'none';
-            if (this.checked && !minInput.value) minInput.value = "30";
-            minInput.focus();
+            if (!minInput.value) minInput.value = "30";
+            setTimeout(() => minInput.select(), 50);
         });
     });
 </script>
