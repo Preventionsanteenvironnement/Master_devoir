@@ -2098,9 +2098,16 @@
                 showRecepisse(code, totalQ, answered);
             } catch(e) {
                 console.error(e);
-                alert('Erreur: ' + e.message);
-                btn.disabled = false;
-                btn.textContent = 'Réessayer';
+                if (e.message && e.message.includes('déjà envoyé')) {
+                    // Doublon : copie déjà soumise → bloquer définitivement
+                    btn.textContent = '⛔ Déjà envoyé';
+                    btn.style.background = '#94a3b8';
+                    alert(e.message);
+                } else {
+                    alert('Erreur: ' + e.message);
+                    btn.disabled = false;
+                    btn.textContent = 'Réessayer';
+                }
             }
         } else {
             alert('Système non prêt. Rechargez la page.');
@@ -3400,8 +3407,7 @@ ${embeddedBlueprintScript}
 
         blueprint.competences = Array.from(usedComps).sort();
         blueprint.autocorrect = true;
-        blueprint.questions = blueprint.content;
-        blueprint.items = blueprint.content;
+        // Note : blueprint.content est la source unique (la grille utilise bp.questions/bp.items en fallback pour anciens blueprints)
 
         const finalStudentHTML = generateStudentTemplate(titre, devoirId, studentHtmlQuestions, blueprint.competences, blueprint);
         if (finalStudentHTML.includes("${")) {
