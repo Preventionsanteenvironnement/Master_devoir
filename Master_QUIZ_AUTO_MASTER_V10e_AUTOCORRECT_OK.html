@@ -43,8 +43,53 @@
         background: linear-gradient(135deg, #eef2f3 0%, #f8f9fa 100%);
         padding: 18px; border-radius: 10px; border: 1px solid #e0e6ed;
     }
-    .header-inputs > .input-group:last-child {
-        grid-column: 1 / -1; /* Options élève prend toute la largeur */
+    .header-inputs > .opts-row {
+        grid-column: 1 / -1;
+    }
+    .opts-row-label {
+        font-size: 0.8em; font-weight: 600; color: #64748b; text-transform: uppercase;
+        letter-spacing: 0.5px; margin-bottom: 8px;
+    }
+    .opts-grid {
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+    }
+    @media (max-width: 700px) { .opts-grid { grid-template-columns: 1fr; } }
+    @media (min-width: 701px) and (max-width: 960px) { .opts-grid { grid-template-columns: repeat(2, 1fr); } }
+    .opt-card {
+        border: 2px solid #e2e8f0; border-radius: 10px; padding: 10px 14px;
+        background: #fff; cursor: pointer; transition: all 0.2s ease;
+        user-select: none;
+    }
+    .opt-card:hover { border-color: #93c5fd; background: #f0f9ff; }
+    .opt-card.active { border-color: #3b82f6; background: #eff6ff; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+    .opt-card-header {
+        display: flex; align-items: center; gap: 8px;
+    }
+    .opt-card-header input[type="checkbox"] {
+        width: 18px; height: 18px; margin: 0; accent-color: #3b82f6; cursor: pointer; flex-shrink: 0;
+    }
+    .opt-card-header .opt-icon { font-size: 1.15em; flex-shrink: 0; }
+    .opt-card-header .opt-label { font-size: 0.9em; font-weight: 600; color: #1e293b; }
+    .opt-card-sub {
+        display: none; margin-top: 10px; padding-top: 8px; border-top: 1px solid #e2e8f0;
+    }
+    .opt-card.active .opt-card-sub { display: block; }
+    .opt-card-sub label {
+        display: flex !important; align-items: center; gap: 8px;
+        font-size: 0.8em !important; font-weight: 500 !important; color: #64748b !important;
+        margin-bottom: 0 !important;
+    }
+    .opt-card-sub input[type="text"],
+    .opt-card-sub input[type="number"] {
+        width: 80px; padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 6px;
+        font-size: 0.9em; text-align: center; background: #f8fafc;
+    }
+    .opt-card-sub input[type="text"]:focus,
+    .opt-card-sub input[type="number"]:focus {
+        border-color: #3b82f6; outline: none; box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
+    }
+    .opt-code-display {
+        letter-spacing: 4px; font-weight: 700; font-size: 1.1em; font-family: ui-monospace, monospace;
     }
     .input-group label { 
         display: block; font-size: 0.85em; font-weight: 600; color: #5a6c7d; 
