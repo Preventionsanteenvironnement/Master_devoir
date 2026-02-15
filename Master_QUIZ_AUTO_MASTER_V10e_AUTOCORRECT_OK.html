@@ -6,13 +6,16 @@
 <title>Master QUIZ AUTO - Final (Compatible Cockpit)</title>
 <style>
     /* --- STYLE ÉDITEUR AMÉLIORÉ --- */
-    :root { 
-        --primary: #3498db; --success: #27ae60; --danger: #e74c3c; --dark: #2c3e50; 
+    :root {
+        --primary: #3498db; --success: #27ae60; --danger: #e74c3c; --dark: #2c3e50;
         --warning: #f39c12; --purple: #8b5cf6; --teal: #14b8a6; --orange: #f97316;
+        --toolbar-h: 120px;
     }
-    body { 
-        font-family: 'Segoe UI', sans-serif; max-width: 950px; margin: 0 auto; 
-        padding: 20px; background: #f4f7f6; color: #333; padding-bottom: 120px; 
+    body {
+        font-family: 'Segoe UI', sans-serif; max-width: 950px; margin: 0 auto;
+        padding: 20px; background: #f4f7f6; color: #333;
+        padding-bottom: calc(var(--toolbar-h) + 40px + env(safe-area-inset-bottom, 0px));
+        scroll-padding-bottom: calc(var(--toolbar-h) + 40px + env(safe-area-inset-bottom, 0px));
         transition: all 0.2s ease;
     }
     
@@ -499,6 +502,29 @@
 </div>
 
 <script>
+    // ── Toolbar spacing dynamique ──
+    (function() {
+        function updateToolbarHeight() {
+            const panel = document.querySelector('.tools-panel');
+            if (!panel) return;
+            const h = panel.offsetHeight;
+            document.documentElement.style.setProperty('--toolbar-h', h + 'px');
+        }
+        window.addEventListener('load', updateToolbarHeight);
+        window.addEventListener('resize', updateToolbarHeight);
+        window.addEventListener('orientationchange', () => setTimeout(updateToolbarHeight, 200));
+        // Recalcul après ajout/suppression de questions (MutationObserver)
+        new MutationObserver(updateToolbarHeight).observe(document.body, { childList: true, subtree: true });
+
+        // Helper : scroll au focus sur input/textarea pour éviter le masquage
+        document.addEventListener('focusin', function(e) {
+            const el = e.target;
+            if (el.matches('input, textarea, select, [contenteditable]')) {
+                setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 150);
+            }
+        });
+    })();
+
     let qCount = 0;
     const ALLOWED_TYPES = new Set([
         "QCU", "QCM", "VF", "NUMBER", "SHORT", "SELECT",
