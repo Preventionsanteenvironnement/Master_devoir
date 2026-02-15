@@ -38,10 +38,13 @@
     }
     .quiz-stats:hover { background: var(--dark); }
     
-    .header-inputs { 
-        display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 15px; margin-bottom: 25px; 
-        background: linear-gradient(135deg, #eef2f3 0%, #f8f9fa 100%); 
+    .header-inputs {
+        display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 15px; margin-bottom: 25px;
+        background: linear-gradient(135deg, #eef2f3 0%, #f8f9fa 100%);
         padding: 18px; border-radius: 10px; border: 1px solid #e0e6ed;
+    }
+    .header-inputs > .input-group:last-child {
+        grid-column: 1 / -1; /* Options élève prend toute la largeur */
     }
     .input-group label { 
         display: block; font-size: 0.85em; font-weight: 600; color: #5a6c7d; 
@@ -447,21 +450,25 @@
             <label>Niveau / Classe</label>
             <input type="text" id="niveau-cible" value="Bac Pro">
         </div>
-        <div class="input-group" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-            <label style="white-space:nowrap;">Options élève :</label>
-            <label style="font-weight:400; font-size:0.85em; cursor:pointer; display:flex; align-items:center; gap:4px;">
-                <input type="checkbox" id="opt-recepisse"> 🧾 Récépissé imprimable
-            </label>
-            <label style="font-weight:400; font-size:0.85em; cursor:pointer; display:flex; align-items:center; gap:4px;">
-                <input type="checkbox" id="opt-2chance"> 🔄 2ème chance (code prof)
-            </label>
-            <input type="text" id="opt-2chance-code" placeholder="Code prof (4 chiffres)" maxlength="4" pattern="[0-9]{4}"
-                style="width:130px; padding:3px 8px; border:1px solid #cbd5e1; border-radius:4px; font-size:0.85em; display:none;">
-            <label style="font-weight:400; font-size:0.85em; cursor:pointer; display:flex; align-items:center; gap:4px;">
-                <input type="checkbox" id="opt-chrono"> ⏱️ Chronomètre
-            </label>
-            <input type="number" id="opt-chrono-minutes" placeholder="Minutes" min="1" max="180"
-                style="width:90px; padding:3px 8px; border:1px solid #cbd5e1; border-radius:4px; font-size:0.85em; display:none;">
+        <div class="input-group" style="display:flex; flex-direction:column; gap:6px;">
+            <label style="white-space:nowrap; font-weight:600; font-size:0.85em; color:#475569;">Options élève :</label>
+            <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding:8px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
+                <label style="font-weight:400; font-size:0.85em; cursor:pointer; display:flex; align-items:center; gap:5px; white-space:nowrap;">
+                    <input type="checkbox" id="opt-recepisse" style="margin:0;"> 🧾 Récépissé
+                </label>
+                <span style="color:#cbd5e1;">|</span>
+                <label style="font-weight:400; font-size:0.85em; cursor:pointer; display:flex; align-items:center; gap:5px; white-space:nowrap;">
+                    <input type="checkbox" id="opt-2chance" style="margin:0;"> 🔄 2ème chance
+                </label>
+                <input type="text" id="opt-2chance-code" placeholder="Code 4 chiffres" maxlength="4" pattern="[0-9]{4}" inputmode="numeric"
+                    style="width:110px; padding:4px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85em; display:none; text-align:center; letter-spacing:3px; font-weight:600;">
+                <span style="color:#cbd5e1;">|</span>
+                <label style="font-weight:400; font-size:0.85em; cursor:pointer; display:flex; align-items:center; gap:5px; white-space:nowrap;">
+                    <input type="checkbox" id="opt-chrono" style="margin:0;"> ⏱️ Chronomètre
+                </label>
+                <input type="number" id="opt-chrono-minutes" placeholder="min" min="1" max="180"
+                    style="width:70px; padding:4px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85em; display:none; text-align:center;">
+            </div>
         </div>
     </div>
 
