@@ -509,7 +509,7 @@
                         <span style="font-size:0.8em; color:#64748b;">L'élève pourra imprimer un récépissé après envoi</span>
                     </div>
                 </div>
-                <!-- ── 2ème chance ── -->
+                <!-- ── 2ème chance (à distance via CockpitPSE) ── -->
                 <div class="opt-card" id="card-2chance">
                     <div class="opt-card-header">
                         <input type="checkbox" id="opt-2chance">
@@ -517,10 +517,7 @@
                         <span class="opt-label">2ème chance</span>
                     </div>
                     <div class="opt-card-sub">
-                        <label>
-                            Code enseignant
-                            <input type="text" id="opt-2chance-code" maxlength="4" pattern="[0-9]{4}" inputmode="numeric" class="opt-code-display" placeholder="····">
-                        </label>
+                        <span style="font-size:0.8em; color:#64748b;">L'élève pourra demander une 2ème tentative via le CockpitPSE</span>
                     </div>
                 </div>
                 <!-- ── Chronomètre ── -->
@@ -1910,24 +1907,6 @@
             display: none; align-items: center; justify-content: center; padding: 20px;
         }
         .pse-2chance-overlay.active { display: flex; }
-        /* ── 2ème chance : choix des options ── */
-        .pse-2chance-options {
-            display: none; flex-direction: column; gap: 10px;
-            background: #fff; border-radius: 16px; padding: 30px;
-            max-width: 440px; width: 100%; text-align: center;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-        .pse-2chance-options.active { display: flex; }
-        .pse-2chance-opt-btn {
-            display: flex; align-items: center; gap: 12px;
-            padding: 14px 18px; border: 2px solid #e2e8f0; border-radius: 12px;
-            background: #fff; cursor: pointer; text-align: left; font-size: 0.95em;
-            transition: all 0.2s;
-        }
-        .pse-2chance-opt-btn:hover { border-color: #6366f1; background: #f5f3ff; }
-        .pse-2chance-opt-btn .opt-icon { font-size: 1.5em; }
-        .pse-2chance-opt-btn .opt-label { font-weight: 600; }
-        .pse-2chance-opt-btn .opt-desc { font-size: 0.8em; color: #64748b; margin-top: 2px; }
         .pse-2chance-status {
             display: none; flex-direction: column; align-items: center; gap: 12px;
             background: #fff; border-radius: 16px; padding: 30px;
@@ -1937,14 +1916,6 @@
         .pse-2chance-status.active { display: flex; }
         .pse-2chance-spinner { width: 40px; height: 40px; border: 4px solid #e2e8f0; border-top-color: #6366f1; border-radius: 50%; animation: spin2c 0.8s linear infinite; }
         @keyframes spin2c { to { transform: rotate(360deg); } }
-        .pse-2chance-box {
-            background: #fff; border-radius: 16px; padding: 30px; max-width: 420px;
-            text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-        .pse-2chance-box input {
-            width: 160px; text-align: center; font-size: 1.5em; letter-spacing: 8px;
-            padding: 10px; border: 2px solid #cbd5e1; border-radius: 10px; margin: 16px 0;
-        }
     </style>
 </head>
 <body data-id-exercice="${devoirId}">
@@ -1954,37 +1925,6 @@
     <span>⏱️</span>
     <span id="pse-chrono-display">--:--</span>
     <span id="pse-chrono-label" style="font-weight:400; font-size:0.85em; opacity:0.8;">restantes</span>
-</div>
-
-<!-- ── 2ÈME CHANCE (code prof) ── -->
-<div class="pse-2chance-overlay" id="pse-2chance-overlay">
-    <div class="pse-2chance-box">
-        <h2>🔄 2ème tentative</h2>
-        <p style="color:#64748b; margin:8px 0 16px;">Votre copie a déjà été envoyée.<br>Pour une 2ème tentative, entrez le <b>code enseignant</b>.</p>
-        <input type="text" id="pse-2chance-input" placeholder="····" maxlength="4" autocomplete="off" inputmode="numeric">
-        <p class="err" id="pse-2chance-err" style="color:#dc2626; font-size:0.85em; display:none;">Code incorrect</p>
-        <div style="display:flex; gap:10px; justify-content:center; margin-top:12px;">
-            <button onclick="document.getElementById('pse-2chance-overlay').classList.remove('active')" style="padding:10px 20px; border:1px solid #cbd5e1; background:#fff; border-radius:8px; cursor:pointer;">Annuler</button>
-            <button id="pse-btn-2chance-valider" style="padding:10px 20px; background:#6366f1; color:#fff; border:none; border-radius:8px; cursor:pointer; font-weight:600;">Valider</button>
-        </div>
-    </div>
-</div>
-
-<!-- ── 2ÈME CHANCE : choix du mode ── -->
-<div class="pse-2chance-overlay" id="pse-2chance-choice-overlay">
-    <div class="pse-2chance-options" id="pse-2chance-options" style="display:flex;">
-        <h2 style="margin:0 0 4px;">🔄 2ème tentative</h2>
-        <p style="color:#64748b; margin:0 0 16px; font-size:0.9em;">Votre copie a déjà été envoyée. Choisissez comment obtenir une 2ème tentative :</p>
-        <button class="pse-2chance-opt-btn" onclick="choisir2eChanceCode()">
-            <span class="opt-icon">🔑</span>
-            <div><div class="opt-label">Code enseignant (en classe)</div><div class="opt-desc">Demandez le code à votre professeur</div></div>
-        </button>
-        <button class="pse-2chance-opt-btn" id="btn-2chance-distance" onclick="choisir2eChanceDistance()">
-            <span class="opt-icon">📩</span>
-            <div><div class="opt-label">Demander à distance</div><div class="opt-desc">Envoyez une demande, le professeur validera</div></div>
-        </button>
-        <button onclick="document.getElementById('pse-2chance-choice-overlay').classList.remove('active')" style="margin-top:8px; padding:10px 20px; border:1px solid #cbd5e1; background:#fff; border-radius:8px; cursor:pointer; color:#64748b;">Annuler</button>
-    </div>
 </div>
 
 <!-- ── 2ÈME CHANCE : attente validation à distance ── -->
@@ -2225,67 +2165,9 @@
     }
 
     // ═══════════════════════════════════════════════════════
-    // 2ÈME CHANCE
+    // 2ÈME CHANCE (demande à distance uniquement)
     // ═══════════════════════════════════════════════════════
     let isSecondeChance = false;
-
-    function demander2eChance() {
-        const opts = getAntiCheatOptions();
-        if (!opts.secondeChance || !opts.codeProf) {
-            alert("La 2ème tentative n'est pas activée pour cet exercice.");
-            return;
-        }
-        document.getElementById('pse-2chance-overlay').classList.add('active');
-        const input = document.getElementById('pse-2chance-input');
-        input.value = '';
-        input.focus();
-    }
-
-    // Event listeners pour 2ème chance
-    document.addEventListener('DOMContentLoaded', function() {
-        const btn2 = document.getElementById('pse-btn-2chance-valider');
-        const input2 = document.getElementById('pse-2chance-input');
-        if (btn2) {
-            btn2.addEventListener('click', valider2eChance);
-        }
-        if (input2) {
-            input2.addEventListener('keypress', (e) => { if (e.key === 'Enter') valider2eChance(); });
-        }
-    });
-
-    function valider2eChance() {
-        const opts = getAntiCheatOptions();
-        const input = document.getElementById('pse-2chance-input');
-        const err = document.getElementById('pse-2chance-err');
-        const code = (input.value || '').trim();
-        if (code === opts.codeProf) {
-            isSecondeChance = true;
-            document.getElementById('pse-2chance-overlay').classList.remove('active');
-            // Réactiver le bouton d'envoi
-            const btn = document.getElementById('btn-envoyer');
-            if (btn) {
-                btn.disabled = false;
-                btn.textContent = '📤 Envoyer (2ème tentative)';
-                btn.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
-            }
-            // Reset le chrono si actif
-            if (opts.chrono && opts.chronoMinutes > 0) {
-                if (chronoInterval) clearInterval(chronoInterval);
-                const bar = document.getElementById('pse-chrono-bar');
-                bar.classList.remove('warning');
-                document.getElementById('pse-chrono-label').textContent = 'restantes';
-                startChrono(opts.chronoMinutes);
-            }
-        } else {
-            err.style.display = 'block';
-            input.classList.add('shake');
-            setTimeout(() => input.classList.remove('shake'), 400);
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════
-    // 2ÈME CHANCE : OPTIONS (code prof OU demande à distance)
-    // ═══════════════════════════════════════════════════════
     let pollingInterval2c = null;
 
     function afficher2eChanceOptions(btn, opts) {
@@ -2294,32 +2176,11 @@
         btn.style.background = '#94a3b8';
         btn.disabled = true;
 
-        // Si code prof configuré → montrer le bouton "en classe"
-        const btnCodeProf = document.querySelector('#pse-2chance-options .pse-2chance-opt-btn:first-of-type');
-        if (btnCodeProf) btnCodeProf.style.display = opts.codeProf ? 'flex' : 'none';
-
-        // Toujours montrer le bouton distance (Firestore)
-        const btnDistance = document.getElementById('btn-2chance-distance');
-        if (btnDistance) btnDistance.style.display = 'flex';
-
-        // Si un seul mode est disponible, on saute directement
-        if (!opts.codeProf) {
-            // Pas de code prof → directement demande à distance
-            choisir2eChanceDistance();
-            return;
-        }
-
-        // Ouvrir l'overlay de choix (les deux modes sont disponibles)
-        document.getElementById('pse-2chance-choice-overlay').classList.add('active');
+        // Lancer directement la demande à distance
+        lancer2eChanceDistance();
     }
 
-    function choisir2eChanceCode() {
-        // Fermer l'overlay de choix, ouvrir l'overlay code prof
-        document.getElementById('pse-2chance-choice-overlay').classList.remove('active');
-        demander2eChance();
-    }
-
-    function choisir2eChanceDistance() {
+    function lancer2eChanceDistance() {
         const devoirId = document.body.dataset.idExercice || 'unknown';
         const eleveCode = (localStorage.getItem('userCode') || '').toUpperCase().trim();
         const classe = (localStorage.getItem('userClasse') || '').trim() || '?';
@@ -2328,9 +2189,6 @@
             alert('Code élève introuvable. Rechargez la page.');
             return;
         }
-
-        // Fermer l'overlay de choix
-        document.getElementById('pse-2chance-choice-overlay').classList.remove('active');
 
         // Envoyer la demande via Firestore
         if (typeof window.demander2eChanceFirestore === 'function') {
@@ -2598,7 +2456,7 @@
                 if (e.message && e.message.includes('déjà envoyé')) {
                     const opts = getAntiCheatOptions();
                     if (opts.secondeChance && !isSecondeChance) {
-                        // 2ème chance disponible — afficher les deux options
+                        // 2ème chance disponible — lancer la demande à distance
                         afficher2eChanceOptions(btn, opts);
                     } else {
                         btn.textContent = '⛔ Déjà envoyé';
@@ -2965,7 +2823,6 @@ ${embeddedBlueprintScript}
             options: {
                 recepisse: !!document.getElementById('opt-recepisse')?.checked,
                 secondeChance: !!document.getElementById('opt-2chance')?.checked,
-                codeProf: document.getElementById('opt-2chance-code')?.value || "",
                 chrono: !!document.getElementById('opt-chrono')?.checked,
                 chronoMinutes: parseInt(document.getElementById('opt-chrono-minutes')?.value) || 0
             }
@@ -2996,7 +2853,6 @@ ${embeddedBlueprintScript}
         }
         restoreOptCard('opt-recepisse', 'card-recepisse', opts.recepisse);
         restoreOptCard('opt-2chance', 'card-2chance', opts.secondeChance);
-        document.getElementById('opt-2chance-code').value = opts.codeProf || "";
         restoreOptCard('opt-chrono', 'card-chrono', opts.chrono);
         document.getElementById('opt-chrono-minutes').value = opts.chronoMinutes || "";
         document.getElementById('quiz-content').innerHTML = '';
@@ -3188,7 +3044,6 @@ ${embeddedBlueprintScript}
         }
         restoreOptCard2('opt-recepisse', 'card-recepisse', bpOpts.recepisse);
         restoreOptCard2('opt-2chance', 'card-2chance', bpOpts.secondeChance);
-        document.getElementById('opt-2chance-code').value = bpOpts.codeProf || "";
         restoreOptCard2('opt-chrono', 'card-chrono', bpOpts.chrono);
         document.getElementById('opt-chrono-minutes').value = bpOpts.chronoMinutes || "";
         showNotification("🔄 Reconstruction en cours...", "info");
@@ -3662,7 +3517,6 @@ ${embeddedBlueprintScript}
                 maxLeaves: 2,
                 recepisse: !!document.getElementById('opt-recepisse')?.checked,
                 secondeChance: !!document.getElementById('opt-2chance')?.checked,
-                codeProf: document.getElementById('opt-2chance-code')?.value || "",
                 chrono: !!document.getElementById('opt-chrono')?.checked,
                 chronoMinutes: parseInt(document.getElementById('opt-chrono-minutes')?.value) || 0
             },
@@ -4039,13 +3893,7 @@ ${embeddedBlueprintScript}
 
         initOptCard('opt-recepisse', 'card-recepisse');
 
-        initOptCard('opt-2chance', 'card-2chance', function() {
-            const codeInput = document.getElementById('opt-2chance-code');
-            if (!codeInput.value) {
-                codeInput.value = String(Math.floor(1000 + Math.random() * 9000));
-            }
-            setTimeout(() => codeInput.select(), 50);
-        });
+        initOptCard('opt-2chance', 'card-2chance');
 
         initOptCard('opt-chrono', 'card-chrono', function() {
             const minInput = document.getElementById('opt-chrono-minutes');
