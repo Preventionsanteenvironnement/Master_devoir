@@ -2591,7 +2591,9 @@ ${embeddedBlueprintScript}
                     "NE JAMAIS transformer une question vers un autre type",
                     "Types autorisés : QCU, QCM, SELECT, VF, NUMBER, SHORT, QQOQCP, PAD, ITAMAMI, DOC, DOCGROUP, IMAGE, TITLE, BOX_NOTE, SEPARATOR",
                     "Niveau pédagogique : " + niveau,
-                    "Utiliser le PDF cours fourni comme référence"
+                    "Utiliser le PDF cours fourni comme référence",
+                    "Chaque questionText DOIT commencer par UN SEUL verbe d'action en gras : <strong>Verbe</strong> suivi du reste de la consigne. Pas de double verbe (ex : éviter 'expliquer puis justifier').",
+                    "RAPPEL CENTRAL : ce n'est PAS le verbe seul qui détermine la compétence, mais l'opération cognitive attendue et la preuve attendue (type de réponse, présence de situation, nécessité de démarche)."
                 ],
                 autorisations: [
                     "Remplir uniquement : questionText, options[].label, reponseCorrecte, reponseAttendue, explication",
@@ -2600,8 +2602,84 @@ ${embeddedBlueprintScript}
                     "Corrections = explication pédagogique + justification + référence au cours",
                     "Exemple correction VF : 'Vrai. Le sommeil permet la récupération physique et mentale (cours p.15). Les phases de sommeil paradoxal consolident la mémoire.'",
                     "Référencer précisément le cours : 'selon le document p.X', 'comme vu en cours chapitre Y'",
-                    "Adapter les corrections au niveau " + niveau + " (vocabulaire, complexité)"
+                    "Adapter les corrections au niveau " + niveau + " (vocabulaire, complexité)",
+                    "Avant de rédiger chaque question, appliquer l'heuristique de classification compétence (voir heuristique_competence)",
+                    "Pour chaque question, vérifier la cohérence entre le verbe d'action, le type de question et la compétence visée"
                 ],
+                approche_competences: {
+                    principe: "En PSE, chaque question évalue une compétence précise (C1 à C6). La compétence n'est pas déterminée par le verbe seul mais par l'opération cognitive réellement demandée à l'élève et la preuve attendue.",
+                    C1: {
+                        intitule: "Traiter une information",
+                        attendu: "Repérer, sélectionner, organiser, classer, lire un document, extraire une donnée utile.",
+                        nuance: "C1 est rarement une fin en soi : elle sert souvent C2 ou C3 (on relève une info pour analyser ou expliquer). Si la question se limite à retrouver une info dans un document → C1."
+                    },
+                    C2: {
+                        intitule: "Appliquer une démarche d'analyse dans une situation donnée",
+                        attendu: "Analyser une situation, relier causes/conséquences, identifier risques/facteurs, interpréter un document pour poser un diagnostic.",
+                        nuance: "Présence fréquente d'une mini-situation ou d'un document. On attend une démarche, pas juste une définition."
+                    },
+                    C3: {
+                        intitule: "Expliquer un phénomène physiologique, un enjeu environnemental, une disposition réglementaire, en lien avec une mesure de prévention",
+                        attendu: "Expliquer un mécanisme ou une règle, faire le lien explicite avec la prévention, conséquences, justification scientifique ou réglementaire.",
+                        nuance: "Si la question demande seulement de réciter une définition → C1. Si on exige le lien phénomène → risque → prévention → C3."
+                    },
+                    C4: {
+                        intitule: "Proposer une solution pour résoudre un problème",
+                        attendu: "Choisir/proposer une mesure, une conduite à tenir, un plan d'action, une prévention adaptée à un contexte.",
+                        nuance: "Il doit y avoir une contrainte ou un contexte. Sinon ce n'est qu'une liste (souvent C1)."
+                    },
+                    C5: {
+                        intitule: "Argumenter un choix",
+                        attendu: "Justifier une solution, comparer des options, défendre un choix avec critères, avantages/limites.",
+                        nuance: "C5 apparaît quand on demande la raison, le critère, le compromis — pas juste la bonne réponse."
+                    },
+                    C6: {
+                        intitule: "Communication à l'écrit et à l'oral avec une syntaxe claire et adaptée",
+                        attendu: "Reformuler, rédiger clairement, structurer, utiliser un vocabulaire adapté.",
+                        nuance: "En QCM, C6 est difficile à évaluer seule. Elle est plutôt intégrée via la qualité de formulation attendue dans reponseAttendue ou dans des formats texte libre."
+                    }
+                },
+                banque_verbes: {
+                    avertissement: "Le verbe n'est qu'un INDICATEUR, jamais une preuve de la compétence. Toujours vérifier avec l'heuristique.",
+                    C1: ["Identifier", "Relever", "Repérer", "Sélectionner", "Classer", "Trier", "Associer", "Définir", "Citer", "Nommer", "Compléter", "Calculer (si lecture simple de données)"],
+                    C2: ["Analyser", "Interpréter", "Comparer", "Différencier", "Déduire", "Relier", "Hiérarchiser", "Identifier (si lié à causes/facteurs)", "Diagnostiquer", "Caractériser"],
+                    C3: ["Expliquer", "Décrire (si mécanisme)", "Justifier (si mécanisme/règle)", "Montrer (lien)", "Illustrer", "Préciser (lien prévention)", "Interpréter (si phénomène)", "Relier (phénomène → prévention)"],
+                    C4: ["Proposer", "Choisir", "Préconiser", "Mettre en œuvre (si action)", "Planifier", "Adapter", "Élaborer", "Sélectionner (mesure la plus adaptée)"],
+                    C5: ["Argumenter", "Justifier (choix)", "Défendre", "Évaluer", "Comparer (options)", "Prioriser", "Expliquer (pourquoi ce choix plutôt qu'un autre)"],
+                    C6: ["Rédiger", "Formuler", "Présenter", "Synthétiser", "Structurer", "Reformuler"]
+                },
+                heuristique_competence: {
+                    description: "Mini-procédure à appliquer AVANT de valider le champ competence de chaque question.",
+                    etape_A: {
+                        question: "Quel est le produit attendu de l'élève ?",
+                        reponses: {
+                            "info à relever": "C1",
+                            "diagnostic ou relation cause/effet": "C2",
+                            "mécanisme ou règle + lien prévention": "C3",
+                            "solution adaptée au contexte": "C4",
+                            "choix + raisons/critères": "C5",
+                            "qualité de formulation (texte long)": "C6"
+                        }
+                    },
+                    etape_B: {
+                        question: "Y a-t-il une situation ou une contrainte ?",
+                        reponse: "Si oui → C2, C4 ou C5 sont plus probables que C1."
+                    },
+                    etape_C: {
+                        question: "La question pourrait-elle être réussie en récitant une définition ?",
+                        reponse: "Si oui → risque de C1. Si non et qu'il faut relier/comprendre/justifier → basculer vers C2 ou C3."
+                    }
+                },
+                regles_qcm_par_competence: {
+                    description: "Règles pédagogiques pour construire des QCM cohérents avec la compétence visée. Les distracteurs doivent être plausibles et correspondre à des erreurs typiques d'élèves.",
+                    C1: "QCU/QCM sur définition, repérage, tri, association. Distracteurs = confusions courantes de vocabulaire.",
+                    C2: "QCU/QCM basé sur mini-situation ou document. Options = raisonnements différents (bonne analyse vs confusion fréquente cause/conséquence).",
+                    C3: "QCU/VF sur mécanisme et prévention, ou NUMBER si seuil réglementaire vu au cours. Justification obligatoire dans reponseAttendue.",
+                    C4: "QCU/QCM sur meilleure mesure de prévention dans un contexte donné. Options = mesures plausibles mais inadaptées au contexte.",
+                    C5: "QCU/QCM sur meilleure justification (raison la plus solide), ou VF sur validité d'un argument. Options = arguments de force variable.",
+                    NUMBER: "Exiger explication du calcul dans reponseAttendue. N'utiliser que si le nombre est explicitement présent dans le cours."
+                },
+                regle_doc_question: "Utiliser les documents (DOC/DOCGROUP) uniquement quand la compétence visée en a besoin (surtout C2 et C3). Toujours placer le document AVANT les questions qui s'y rapportent, pas tous les docs en bloc.",
                 formats_reponses: {
                     QCU: "1 seule bonne réponse dans reponseCorrecte",
                     QCM: "QRM (réponses multiples) : plusieurs bonnes réponses dans reponseCorrecte (liste d'identifiants). Notation par discordance : score = max(0, barème − 0.5 × erreurs)",
