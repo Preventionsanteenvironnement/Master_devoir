@@ -2598,19 +2598,21 @@ ${embeddedBlueprintScript}
                 mission: `Remplir ce devoir PSE niveau ${niveau} sur le thème : ${titre}`,
                 regles_strictes: [
                     "RESPECTER exactement la structure JSON",
-                    "NE JAMAIS modifier : id, qid, type, inputType, competence, bareme",
+                    "NE JAMAIS modifier : id, qid, type, inputType, competence, bareme, docgroupId, parentDocGroup",
                     "GARDER tous les identifiants identiques",
-                    "NE JAMAIS transformer une question vers un autre type",
+                    "NE JAMAIS transformer une question vers un autre type (ne JAMAIS changer DOCGROUP en DOC, QCU en QCM, etc.)",
                     "Types autorisés : QCU, QCM, SELECT, VF, NUMBER, SHORT, QQOQCP, PAD, ITAMAMI, DOC, DOCGROUP, IMAGE, TITLE, BOX_NOTE, SEPARATOR",
                     "Niveau pédagogique : " + niveau,
                     "Utiliser le PDF cours fourni comme référence",
-                    "Chaque questionText DOIT commencer par UN SEUL verbe d'action en gras : <strong>Verbe</strong> suivi du reste de la consigne. Pas de double verbe (ex : éviter 'expliquer puis justifier').",
-                    "RAPPEL CENTRAL : ce n'est PAS le verbe seul qui détermine la compétence, mais l'opération cognitive attendue et la preuve attendue (type de réponse, présence de situation, nécessité de démarche)."
+                    "Chaque questionText (ou enonce) DOIT commencer par UN SEUL verbe d'action en gras : <strong>Verbe</strong> suivi du reste de la consigne. Pas de double verbe (ex : éviter 'expliquer puis justifier').",
+                    "RAPPEL CENTRAL : ce n'est PAS le verbe seul qui détermine la compétence, mais l'opération cognitive attendue et la preuve attendue (type de réponse, présence de situation, nécessité de démarche).",
+                    "Si un bloc du squelette reste inutilisé (pas assez de contenu dans le cours), le LAISSER VIDE tel quel. Ne pas le supprimer ni le modifier."
                 ],
                 autorisations: [
-                    "Remplir uniquement : questionText, options[].label, reponseCorrecte, reponseAttendue, explication",
+                    "Remplir uniquement : questionText/enonce, options[].label/options[].text, reponseCorrecte/correct, reponseAttendue, explication/explanation, validAnswers (NUMBER)",
+                    "Pour les blocs DOCGROUP : remplir OBLIGATOIREMENT docTitle et docContent (voir section blocs_document)",
                     "Créer des énoncés adaptés au niveau " + niveau,
-                    "OBLIGATOIRE : Rédiger une correction complète dans reponseAttendue",
+                    "OBLIGATOIRE : Rédiger une correction complète dans reponseAttendue ou explanation",
                     "Corrections = explication pédagogique + justification + référence au cours",
                     "Exemple correction VF : 'Vrai. Le sommeil permet la récupération physique et mentale (cours p.15). Les phases de sommeil paradoxal consolident la mémoire.'",
                     "Référencer précisément le cours : 'selon le document p.X', 'comme vu en cours chapitre Y'",
@@ -2618,6 +2620,28 @@ ${embeddedBlueprintScript}
                     "Avant de rédiger chaque question, appliquer l'heuristique de classification compétence (voir heuristique_competence)",
                     "Pour chaque question, vérifier la cohérence entre le verbe d'action, le type de question et la compétence visée"
                 ],
+                blocs_document: {
+                    description: "Quand le squelette contient un bloc DOCGROUP, tu DOIS remplir docTitle et docContent. Les questions enfants (avec parentDocGroup) doivent porter sur ce document.",
+                    regles: [
+                        "Remplir OBLIGATOIREMENT docTitle : titre court du document (ex : 'Consommation énergétique résidentielle')",
+                        "Remplir OBLIGATOIREMENT docContent : contenu neutre issu du cours — définition, données chiffrées, mini-tableau, liste à puces, extrait réglementaire. PAS d'histoire ni de personnage.",
+                        "NE JAMAIS changer le type DOCGROUP en DOC ou autre",
+                        "NE JAMAIS supprimer ou modifier le champ docgroupId",
+                        "NE JAMAIS supprimer ou modifier le champ parentDocGroup des questions enfants",
+                        "Les questions qui ont un parentDocGroup DOIVENT porter sur le contenu du document parent",
+                        "Un document sert surtout les compétences C2 (analyser) et C3 (expliquer un phénomène)"
+                    ],
+                    exemple_docContent: "Répartition de la consommation énergétique d'un foyer français moyen :\\n• Chauffage : 66%\\n• Eau chaude sanitaire : 11%\\n• Électroménager et éclairage : 14%\\n• Cuisson : 4%\\n• Autres usages : 5%\\nSource : ADEME 2023."
+                },
+                blocs_inutilises: {
+                    description: "Le squelette peut contenir plus de blocs que nécessaire. Si le cours ne fournit pas assez de contenu pour tous les remplir :",
+                    regles: [
+                        "Remplir en priorité les blocs qui correspondent au contenu du cours",
+                        "Les blocs restants : LAISSER les champs vides tels quels (enonce vide, options vides, docTitle vide, docContent vide)",
+                        "NE JAMAIS supprimer un bloc inutilisé",
+                        "NE JAMAIS inventer du contenu hors du cours fourni pour remplir un bloc en plus"
+                    ]
+                },
                 approche_competences: {
                     principe: "En PSE, chaque question évalue une compétence précise (C1 à C6). La compétence n'est pas déterminée par le verbe seul mais par l'opération cognitive réellement demandée à l'élève et la preuve attendue.",
                     C1: {
@@ -2691,14 +2715,15 @@ ${embeddedBlueprintScript}
                     C5: "QCU/QCM sur meilleure justification (raison la plus solide), ou VF sur validité d'un argument. Options = arguments de force variable.",
                     NUMBER: "Exiger explication du calcul dans reponseAttendue. N'utiliser que si le nombre est explicitement présent dans le cours."
                 },
-                regle_doc_question: "Utiliser les documents (DOC/DOCGROUP) uniquement quand la compétence visée en a besoin (surtout C2 et C3). Toujours placer le document AVANT les questions qui s'y rapportent, pas tous les docs en bloc.",
+                regle_doc_question: "Les blocs DOCGROUP sont déjà placés dans le squelette avec leurs questions liées (parentDocGroup). Remplir docTitle et docContent avec un extrait neutre du cours, puis rédiger les questions enfants en lien direct avec ce contenu. Les documents servent surtout C2 (analyse) et C3 (explication d'un phénomène).",
                 formats_reponses: {
-                    QCU: "1 seule bonne réponse dans reponseCorrecte",
-                    QCM: "QRM (réponses multiples) : plusieurs bonnes réponses dans reponseCorrecte (liste d'identifiants). Notation par discordance : score = max(0, barème − 0.5 × erreurs)",
+                    QCU: "1 seule bonne réponse dans reponseCorrecte (ou correct: true sur 1 option). inputType = radio.",
+                    QCM: "QRM (réponses multiples) : plusieurs bonnes réponses (correct: true sur plusieurs options). inputType = checkbox. Notation par discordance : score = max(0, barème − 0.5 × erreurs)",
                     SELECT: "1 seule bonne réponse dans reponseCorrecte (id value d'option)",
-                    VF: "Justifier dans reponseAttendue pourquoi vrai ou faux + référence cours",
+                    VF: "correct = 'vrai' ou 'faux'. Justifier dans explanation pourquoi vrai ou faux + référence cours",
                     SHORT: "Accepter plusieurs formulations séparées par ; dans reponseCorrecte",
-                    NUMBER: "Valeur numérique exacte + explication calcul dans reponseAttendue",
+                    NUMBER: "validAnswers = valeur numérique exacte (string). Explication du calcul dans explanation.",
+                    DOCGROUP: "Remplir docTitle et docContent. Ne PAS toucher docgroupId. Les questions enfants (parentDocGroup) portent sur ce contenu.",
                     ENCADRES: "QQOQCP/PAD/ITAMAMI : sous-questions texte libre, correction manuelle"
                 },
                 final: "SUPPRIMER ce champ instructions du JSON final"
@@ -2964,6 +2989,29 @@ ${embeddedBlueprintScript}
         }
         document.getElementById('quiz-content').innerHTML = '';
         qCount = 0;
+
+        // ── FILET DE SÉCURITÉ : convertir DOC → DOCGROUP si l'IA a changé le type ──
+        // Un DOC avec docTitle+docContent remplis ET suivi par des questions = probablement un DOCGROUP cassé par l'IA
+        for (let i = 0; i < data.questions.length; i++) {
+            const q = data.questions[i];
+            if (q.type === 'DOC' && q.docTitle && q.docContent) {
+                // Vérifier si la question suivante n'est pas aussi un DOC/DOCGROUP (= c'est un doc suivi de questions)
+                const next = data.questions[i + 1];
+                if (next && next.type !== 'DOC' && next.type !== 'DOCGROUP') {
+                    // Convertir en DOCGROUP
+                    console.log(`🔄 Auto-conversion DOC → DOCGROUP : "${q.docTitle}"`);
+                    q.type = 'DOCGROUP';
+                    if (!q.docgroupId) {
+                        q.docgroupId = `dg_auto_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+                    }
+                    // Lier la question suivante comme enfant si elle n'a pas déjà un parentDocGroup
+                    if (next && !next.parentDocGroup) {
+                        next.parentDocGroup = q.docgroupId;
+                        console.log(`   ↳ Question "${next.qid}" liée comme enfant du document`);
+                    }
+                }
+            }
+        }
 
         const docGroups = {};
         data.questions.forEach((q) => {
