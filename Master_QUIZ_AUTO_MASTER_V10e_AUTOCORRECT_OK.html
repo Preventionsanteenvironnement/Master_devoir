@@ -534,6 +534,17 @@
                         </label>
                     </div>
                 </div>
+                <!-- ── Code d'accès (chiffrement) ── -->
+                <div class="opt-card" id="card-codeacces">
+                    <div class="opt-card-header">
+                        <input type="checkbox" id="opt-codeacces">
+                        <span class="opt-icon">🔒</span>
+                        <span class="opt-label">Code d'accès</span>
+                    </div>
+                    <div class="opt-card-sub">
+                        <span style="font-size:0.8em; color:#64748b;">Le devoir sera chiffré. L'élève devra saisir un code pour y accéder.</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -580,6 +591,7 @@
     <button class="btn-tool" style="background:linear-gradient(135deg, #06b6d4, #0891b2);" onclick="importJSON()">📥 Import JSON</button>
     <button class="btn-tool" style="background:linear-gradient(135deg, #0891b2, #0e7490);" onclick="importJSONFromPaste()">📝 Coller JSON</button>
     <button class="btn-tool" style="background:linear-gradient(135deg, #334155, #1f2937);" onclick="printPDF()">🖨️ Imprimer</button>
+    <button class="btn-tool" style="background:linear-gradient(135deg, #d97706, #b45309);" onclick="downloadCarnetDeCodes()">📋 Carnet codes</button>
     <span style="width:1px;background:rgba(255,255,255,0.2);margin:0 8px;"></span>
     <button class="btn-tool btn-export" onclick="attemptExport()">🚀 EXPORTER</button>
 </div>
@@ -2737,7 +2749,7 @@ ${embeddedBlueprintScript}
                     label: qCounter.toString(),
                     competence: competence,
                     bareme: bareme,
-                    inputType: type === 'SELECT' ? "select" : "checkbox",
+                    inputType: type === 'SELECT' ? "select" : (type === 'QCM' ? "checkbox" : "radio"),
                     autocorrect: true,
                     besoinCorrectionManuelle: false,
                     questionText: "[ÉNONCÉ À REMPLIR]",
@@ -2904,7 +2916,8 @@ ${embeddedBlueprintScript}
                 recepisse: !!document.getElementById('opt-recepisse')?.checked,
                 secondeChance: !!document.getElementById('opt-2chance')?.checked,
                 chrono: !!document.getElementById('opt-chrono')?.checked,
-                chronoMinutes: parseInt(document.getElementById('opt-chrono-minutes')?.value) || 0
+                chronoMinutes: parseInt(document.getElementById('opt-chrono-minutes')?.value) || 0,
+                codeAcces: !!document.getElementById('opt-codeacces')?.checked
             }
         };
 
@@ -2929,7 +2942,8 @@ ${embeddedBlueprintScript}
         const optionsDejaConfigurees =
             document.getElementById('opt-recepisse')?.checked ||
             document.getElementById('opt-2chance')?.checked ||
-            document.getElementById('opt-chrono')?.checked;
+            document.getElementById('opt-chrono')?.checked ||
+            document.getElementById('opt-codeacces')?.checked;
 
         function restoreOptCard(checkboxId, cardId, isChecked) {
             const cb = document.getElementById(checkboxId);
@@ -2942,6 +2956,7 @@ ${embeddedBlueprintScript}
             restoreOptCard('opt-recepisse', 'card-recepisse', opts.recepisse);
             restoreOptCard('opt-2chance', 'card-2chance', opts.secondeChance);
             restoreOptCard('opt-chrono', 'card-chrono', opts.chrono);
+            restoreOptCard('opt-codeacces', 'card-codeacces', opts.codeAcces);
             document.getElementById('opt-chrono-minutes').value = opts.chronoMinutes || "";
             console.log("📋 Options restaurées depuis le draft");
         } else {
@@ -3131,7 +3146,8 @@ ${embeddedBlueprintScript}
         const optionsDejaConfigurees =
             document.getElementById('opt-recepisse')?.checked ||
             document.getElementById('opt-2chance')?.checked ||
-            document.getElementById('opt-chrono')?.checked;
+            document.getElementById('opt-chrono')?.checked ||
+            document.getElementById('opt-codeacces')?.checked;
 
         function restoreOptCard2(checkboxId, cardId, isChecked) {
             const cb = document.getElementById(checkboxId);
@@ -3145,6 +3161,7 @@ ${embeddedBlueprintScript}
             restoreOptCard2('opt-recepisse', 'card-recepisse', bpOpts.recepisse);
             restoreOptCard2('opt-2chance', 'card-2chance', bpOpts.secondeChance);
             restoreOptCard2('opt-chrono', 'card-chrono', bpOpts.chrono);
+            restoreOptCard2('opt-codeacces', 'card-codeacces', bpOpts.codeAcces);
             document.getElementById('opt-chrono-minutes').value = bpOpts.chronoMinutes || "";
             console.log("📋 Options restaurées depuis le blueprint");
         } else {
@@ -3587,6 +3604,325 @@ ${embeddedBlueprintScript}
         return { ok: true, errors };
     }
 
+    // ═══════════════════════════════════════════════════════
+    // 🔐 CHIFFREMENT AES-GCM (Code d'accès)
+    // ═══════════════════════════════════════════════════════
+
+    // Dérive une clé AES-256 à partir d'un mot de passe (PBKDF2)
+    async function deriveKey(password, salt) {
+        const enc = new TextEncoder();
+        const keyMaterial = await crypto.subtle.importKey(
+            "raw", enc.encode(password.toLowerCase().trim()),
+            { name: "PBKDF2" }, false, ["deriveKey"]
+        );
+        return crypto.subtle.deriveKey(
+            { name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" },
+            keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt"]
+        );
+    }
+
+    // Chiffre un texte avec AES-GCM. Retourne { salt, iv, ciphertext } en base64
+    async function encryptContent(plaintext, password) {
+        const enc = new TextEncoder();
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const key = await deriveKey(password, salt);
+        const encrypted = await crypto.subtle.encrypt(
+            { name: "AES-GCM", iv: iv }, key, enc.encode(plaintext)
+        );
+        function toB64(buf) { return btoa(String.fromCharCode(...new Uint8Array(buf))); }
+        return {
+            salt: toB64(salt),
+            iv: toB64(iv),
+            ciphertext: toB64(encrypted)
+        };
+    }
+
+    // Carnet de codes (stocké en localStorage)
+    function addToCarnetDeCodes(devoirId, titre, classe, code) {
+        const carnet = JSON.parse(localStorage.getItem('pse_carnet_codes') || '[]');
+        carnet.push({
+            devoirId: devoirId,
+            titre: titre,
+            classe: classe,
+            code: code,
+            date: new Date().toLocaleDateString('fr-FR') + ' ' + new Date().toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})
+        });
+        localStorage.setItem('pse_carnet_codes', JSON.stringify(carnet));
+    }
+
+    function downloadCarnetDeCodes() {
+        const carnet = JSON.parse(localStorage.getItem('pse_carnet_codes') || '[]');
+        if (carnet.length === 0) { alert("Aucun code enregistré."); return; }
+        let txt = "═══════════════════════════════════════\n";
+        txt += "   CARNET DE CODES - PSE\n";
+        txt += "   Pass prof : profPSE\n";
+        txt += "═══════════════════════════════════════\n\n";
+        carnet.forEach((entry, i) => {
+            txt += `${i+1}. ${entry.titre}\n`;
+            txt += `   ID      : ${entry.devoirId}\n`;
+            txt += `   Classe  : ${entry.classe}\n`;
+            txt += `   Code    : ${entry.code}\n`;
+            txt += `   Date    : ${entry.date}\n`;
+            txt += `   ─────────────────────────────\n`;
+        });
+        downloadFile(txt, 'carnet_codes_PSE.txt', 'text/plain');
+    }
+
+    // Modale de saisie du code d'accès
+    function showCodeAccesModal(devoirId, titre) {
+        return new Promise((resolve) => {
+            // Créer la modale
+            const overlay = document.createElement('div');
+            overlay.id = 'modal-code-acces';
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);';
+            overlay.innerHTML = `
+                <div style="background:#fff;border-radius:20px;padding:36px;max-width:480px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,0.3);animation:popIn 0.3s ease-out;">
+                    <div style="text-align:center;margin-bottom:24px;">
+                        <div style="font-size:2.5em;margin-bottom:8px;">🔐</div>
+                        <h2 style="color:#312e81;margin:0 0 4px;">Code d'accès au devoir</h2>
+                        <p style="color:#64748b;font-size:0.9em;margin:0;">${titre}</p>
+                    </div>
+                    <div style="margin-bottom:20px;">
+                        <label style="font-weight:600;font-size:0.9em;color:#374151;display:block;margin-bottom:8px;">
+                            Choisissez un code d'accès pour ce devoir :
+                        </label>
+                        <input type="text" id="input-code-acces" placeholder="Ex : PSE-2B-EVAL1"
+                            style="display:block;width:100%;padding:14px 18px;border:3px solid #c7d2fe;border-radius:12px;font-size:1.1em;text-align:center;font-weight:700;letter-spacing:1px;box-sizing:border-box;"
+                            autocomplete="off">
+                        <p style="color:#94a3b8;font-size:0.8em;margin-top:8px;text-align:center;">
+                            Majuscules/minuscules sans importance. L'élève pourra taper dans n'importe quelle casse.
+                        </p>
+                        <p id="err-code-acces" style="color:#ef4444;font-size:0.85em;text-align:center;display:none;margin-top:6px;"></p>
+                    </div>
+                    <div style="display:flex;gap:12px;">
+                        <button id="btn-code-annuler" style="flex:1;padding:14px;background:#f1f5f9;color:#475569;border:none;border-radius:12px;font-size:1em;font-weight:700;cursor:pointer;">Annuler</button>
+                        <button id="btn-code-valider" style="flex:1;padding:14px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:12px;font-size:1em;font-weight:700;cursor:pointer;">Valider</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            const input = document.getElementById('input-code-acces');
+            const errP = document.getElementById('err-code-acces');
+            input.focus();
+
+            function valider() {
+                const code = input.value.trim();
+                if (code.length < 3) {
+                    errP.textContent = "Le code doit contenir au moins 3 caractères.";
+                    errP.style.display = 'block';
+                    input.style.borderColor = '#ef4444';
+                    return;
+                }
+                overlay.remove();
+                resolve(code);
+            }
+            function annuler() {
+                overlay.remove();
+                resolve(null);
+            }
+
+            document.getElementById('btn-code-valider').addEventListener('click', valider);
+            document.getElementById('btn-code-annuler').addEventListener('click', annuler);
+            input.addEventListener('keypress', (e) => { if (e.key === 'Enter') valider(); });
+        });
+    }
+
+    // Récapitulatif avant téléchargement
+    function showRecapCodeAcces(devoirId, titre, classe, code) {
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.id = 'modal-recap-code';
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);';
+            overlay.innerHTML = `
+                <div style="background:#fff;border-radius:20px;padding:36px;max-width:520px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,0.3);animation:popIn 0.3s ease-out;">
+                    <div style="text-align:center;margin-bottom:20px;">
+                        <div style="font-size:2.5em;margin-bottom:8px;">✅</div>
+                        <h2 style="color:#059669;margin:0 0 4px;">Devoir chiffré avec succès</h2>
+                    </div>
+                    <div style="background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border:2px solid #86efac;border-radius:16px;padding:20px;margin-bottom:16px;">
+                        <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;font-size:0.95em;">
+                            <span style="color:#64748b;font-weight:600;">Devoir :</span>
+                            <span style="font-weight:700;color:#1e293b;">${titre}</span>
+                            <span style="color:#64748b;font-weight:600;">ID :</span>
+                            <span style="font-weight:600;color:#1e293b;">${devoirId}</span>
+                            <span style="color:#64748b;font-weight:600;">Classe :</span>
+                            <span style="font-weight:600;color:#1e293b;">${classe}</span>
+                            <span style="color:#64748b;font-weight:600;">Code d'accès :</span>
+                            <span style="font-weight:800;color:#6366f1;font-size:1.2em;letter-spacing:2px;">${code}</span>
+                        </div>
+                    </div>
+                    <div style="background:#fef3c7;border:2px solid #fbbf24;border-radius:12px;padding:14px;margin-bottom:20px;text-align:center;">
+                        <p style="margin:0;font-weight:700;color:#92400e;font-size:0.95em;">
+                            ⚠️ Pensez à enregistrer ce code !<br>
+                            <span style="font-weight:400;font-size:0.85em;">Prenez une capture d'écran ou notez-le avant de continuer.</span>
+                        </p>
+                    </div>
+                    <div style="display:flex;gap:12px;">
+                        <button id="btn-recap-carnet" style="flex:1;padding:14px;background:#f1f5f9;color:#475569;border:none;border-radius:12px;font-size:0.9em;font-weight:700;cursor:pointer;" title="Télécharger le carnet de tous vos codes">📋 Carnet de codes</button>
+                        <button id="btn-recap-ok" style="flex:1;padding:14px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;border-radius:12px;font-size:1em;font-weight:700;cursor:pointer;">J'ai noté, continuer ▶️</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+
+            document.getElementById('btn-recap-ok').addEventListener('click', () => {
+                overlay.remove();
+                resolve(true);
+            });
+            document.getElementById('btn-recap-carnet').addEventListener('click', () => {
+                downloadCarnetDeCodes();
+            });
+        });
+    }
+
+    // Génère la page HTML élève chiffrée (page de déverrouillage)
+    function generateEncryptedStudentPage(titre, devoirId, encData, encProf) {
+        return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSE - ${titre}</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
+            min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
+        }
+        .lock-box {
+            background: #fff; border-radius: 24px; padding: 44px 36px; max-width: 460px;
+            width: 100%; text-align: center; box-shadow: 0 30px 80px rgba(0,0,0,0.4);
+            animation: popIn 0.5s ease-out;
+        }
+        @keyframes popIn {
+            from { opacity: 0; transform: scale(0.9) translateY(20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .lock-icon { font-size: 3.5em; margin-bottom: 12px; }
+        .lock-box h1 { color: #312e81; font-size: 1.4em; margin-bottom: 6px; }
+        .lock-box .sub { color: #64748b; font-size: 0.9em; margin-bottom: 28px; }
+        .lock-box input {
+            display: block; width: 100%; padding: 16px 20px; border: 3px solid #c7d2fe;
+            border-radius: 14px; font-size: 1.2em; text-align: center;
+            font-weight: 700; letter-spacing: 2px; transition: all 0.2s;
+        }
+        .lock-box input:focus { border-color: #6366f1; outline: none; box-shadow: 0 0 0 4px rgba(99,102,241,0.15); }
+        .lock-box input.shake { animation: shake 0.4s; border-color: #ef4444; }
+        @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+        .lock-box .err { color: #ef4444; font-size: 0.85em; margin-top: 10px; display: none; }
+        .lock-box .btn-unlock {
+            display: block; width: 100%; margin-top: 24px; padding: 16px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff;
+            border: none; border-radius: 14px; font-size: 1.1em; font-weight: 700;
+            cursor: pointer; transition: all 0.2s; box-shadow: 0 8px 25px rgba(99,102,241,0.3);
+        }
+        .lock-box .btn-unlock:hover { transform: translateY(-3px); box-shadow: 0 12px 35px rgba(99,102,241,0.4); }
+        .lock-box .btn-unlock:disabled { background: #94a3b8; cursor: wait; transform: none; box-shadow: none; }
+        .spinner { display: none; margin: 16px auto 0; width: 32px; height: 32px; border: 4px solid #e2e8f0; border-top-color: #6366f1; border-radius: 50%; animation: spin 0.7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="lock-box">
+        <div class="lock-icon">🔒</div>
+        <h1>Évaluation protégée</h1>
+        <p class="sub">${titre}</p>
+        <input type="text" id="code-acces-input" placeholder="Code d'accès" autocomplete="off">
+        <p class="err" id="code-acces-err">Code incorrect. Vérifiez et réessayez.</p>
+        <div class="spinner" id="spinner"></div>
+        <button class="btn-unlock" id="btn-unlock">Déverrouiller 🔓</button>
+    </div>
+
+    <script>
+    // Données chiffrées (code prof et code devoir)
+    const ENC_DATA = ${JSON.stringify(encData)};
+    const ENC_PROF = ${JSON.stringify(encProf)};
+
+    async function deriveKey(password, saltB64) {
+        const enc = new TextEncoder();
+        const salt = Uint8Array.from(atob(saltB64), c => c.charCodeAt(0));
+        const keyMaterial = await crypto.subtle.importKey(
+            "raw", enc.encode(password.toLowerCase().trim()),
+            { name: "PBKDF2" }, false, ["deriveKey"]
+        );
+        return crypto.subtle.deriveKey(
+            { name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" },
+            keyMaterial, { name: "AES-GCM", length: 256 }, false, ["decrypt"]
+        );
+    }
+
+    async function tryDecrypt(encObj, password) {
+        try {
+            const iv = Uint8Array.from(atob(encObj.iv), c => c.charCodeAt(0));
+            const ciphertext = Uint8Array.from(atob(encObj.ciphertext), c => c.charCodeAt(0));
+            const key = await deriveKey(password, encObj.salt);
+            const decrypted = await crypto.subtle.decrypt(
+                { name: "AES-GCM", iv: iv }, key, ciphertext
+            );
+            return new TextDecoder().decode(decrypted);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    async function attemptUnlock() {
+        const input = document.getElementById('code-acces-input');
+        const err = document.getElementById('code-acces-err');
+        const btn = document.getElementById('btn-unlock');
+        const spinner = document.getElementById('spinner');
+        const code = input.value.trim();
+
+        if (code.length < 2) {
+            input.classList.add('shake');
+            err.textContent = "Entrez le code fourni par votre enseignant.";
+            err.style.display = 'block';
+            setTimeout(() => input.classList.remove('shake'), 400);
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Déchiffrement...';
+        spinner.style.display = 'block';
+        err.style.display = 'none';
+
+        // Essayer avec le code saisi (code devoir)
+        let html = await tryDecrypt(ENC_DATA, code);
+
+        // Si échec, essayer avec le pass prof
+        if (!html) {
+            html = await tryDecrypt(ENC_PROF, code);
+        }
+
+        if (html) {
+            // Succès ! Remplacer toute la page
+            document.open();
+            document.write(html);
+            document.close();
+        } else {
+            // Échec
+            btn.disabled = false;
+            btn.textContent = 'Déverrouiller 🔓';
+            spinner.style.display = 'none';
+            input.classList.add('shake');
+            err.textContent = 'Code incorrect. Vérifiez et réessayez.';
+            err.style.display = 'block';
+            setTimeout(() => input.classList.remove('shake'), 400);
+            input.select();
+        }
+    }
+
+    document.getElementById('btn-unlock').addEventListener('click', attemptUnlock);
+    document.getElementById('code-acces-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') attemptUnlock();
+    });
+    document.getElementById('code-acces-input').focus();
+    <\/script>
+</body>
+</html>`;
+    }
+
     // --- EXPORT AMÉLIORÉ AVEC ESPACEMENT ---
     function performExportWithDelay() {
         const devoirId = document.getElementById('devoir-id').value.trim() || `quiz_${Date.now()}`;
@@ -3623,7 +3959,8 @@ ${embeddedBlueprintScript}
                 recepisse: !!document.getElementById('opt-recepisse')?.checked,
                 secondeChance: !!document.getElementById('opt-2chance')?.checked,
                 chrono: !!document.getElementById('opt-chrono')?.checked,
-                chronoMinutes: parseInt(document.getElementById('opt-chrono-minutes')?.value) || 0
+                chronoMinutes: parseInt(document.getElementById('opt-chrono-minutes')?.value) || 0,
+                codeAcces: !!document.getElementById('opt-codeacces')?.checked
             },
             content: []
         };
@@ -3766,7 +4103,7 @@ ${embeddedBlueprintScript}
                     label: qCounter.toString(),
                     competence: competence,
                     bareme: bareme,
-                    inputType: type === "SELECT" ? "select" : "checkbox",
+                    inputType: type === "SELECT" ? "select" : (isQcm ? "checkbox" : "radio"),
                     autocorrect: true,
                     besoinCorrectionManuelle: false,
                     questionText: enoncePlain,
@@ -3950,14 +4287,61 @@ ${embeddedBlueprintScript}
             return;
         }
 
-        downloadFile(JSON.stringify(blueprint, null, 4), `${devoirId}_blueprint.json`, 'application/json');
-        showNotification(`📄 Blueprint téléchargé ! Fichier élève dans 2 secondes...`, 'info');
-        
-        // 2. Export fichier élève après 2 secondes
-        setTimeout(() => {
-            downloadFile(finalStudentHTML, `${devoirId}_eleve.html`, 'text/html');
-            showNotification(`✅ Export terminé ! 2 fichiers téléchargés avec succès`);
-        }, 2000);
+        const useCodeAcces = !!document.getElementById('opt-codeacces')?.checked;
+
+        if (!useCodeAcces) {
+            // ── Export classique (sans chiffrement) ──
+            downloadFile(JSON.stringify(blueprint, null, 4), `${devoirId}_blueprint.json`, 'application/json');
+            showNotification(`📄 Blueprint téléchargé ! Fichier élève dans 2 secondes...`, 'info');
+            setTimeout(() => {
+                downloadFile(finalStudentHTML, `${devoirId}_eleve.html`, 'text/html');
+                showNotification(`✅ Export terminé ! 2 fichiers téléchargés avec succès`);
+            }, 2000);
+        } else {
+            // ── Export chiffré (avec code d'accès) ──
+            (async () => {
+                const code = await showCodeAccesModal(devoirId, titre);
+                if (!code) {
+                    showNotification(`❌ Export annulé`, 'error');
+                    return;
+                }
+
+                showNotification(`🔐 Chiffrement en cours...`, 'info');
+
+                try {
+                    // Chiffrer le contenu sensible (body complet du fichier élève)
+                    const encryptedData = await encryptContent(finalStudentHTML, code);
+
+                    // Générer aussi un chiffrement avec le pass prof (profPSE)
+                    const encryptedProf = await encryptContent(finalStudentHTML, "profpse");
+
+                    // Générer le fichier élève chiffré (page de déverrouillage)
+                    const encryptedStudentHTML = generateEncryptedStudentPage(titre, devoirId, encryptedData, encryptedProf);
+
+                    // Sauvegarder dans le carnet
+                    const classe = document.getElementById('niveau-cible')?.value || "?";
+                    addToCarnetDeCodes(devoirId, titre, classe, code);
+
+                    // Afficher le récapitulatif
+                    await showRecapCodeAcces(devoirId, titre, classe, code);
+
+                    // Télécharger
+                    downloadFile(JSON.stringify(blueprint, null, 4), `${devoirId}_blueprint.json`, 'application/json');
+                    showNotification(`📄 Blueprint téléchargé ! Fichier élève chiffré dans 2 secondes...`, 'info');
+                    setTimeout(() => {
+                        downloadFile(encryptedStudentHTML, `${devoirId}_eleve.html`, 'text/html');
+                        showNotification(`✅ Export chiffré terminé ! Code d'accès : ${code}`);
+                    }, 2000);
+                } catch (err) {
+                    console.error("Erreur chiffrement:", err);
+                    alert("Erreur lors du chiffrement : " + err.message + "\n\nExport classique sans chiffrement.");
+                    downloadFile(JSON.stringify(blueprint, null, 4), `${devoirId}_blueprint.json`, 'application/json');
+                    setTimeout(() => {
+                        downloadFile(finalStudentHTML, `${devoirId}_eleve.html`, 'text/html');
+                    }, 2000);
+                }
+            })();
+        }
     }
 
     // Initialisation au chargement
@@ -4005,6 +4389,8 @@ ${embeddedBlueprintScript}
             if (!minInput.value) minInput.value = "30";
             setTimeout(() => minInput.select(), 50);
         });
+
+        initOptCard('opt-codeacces', 'card-codeacces');
     });
 </script>
 </body>
