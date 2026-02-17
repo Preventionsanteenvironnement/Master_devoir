@@ -1884,6 +1884,7 @@
             .pse-recepisse { position: static !important; background: none !important; }
             .pse-recepisse-box { box-shadow: none !important; max-width: 100% !important; }
             .pse-recepisse-box .btn-print { display: none !important; }
+            #pse-btn-close-recepisse { display: none !important; }
         }
         /* ── Chronomètre ── */
         .pse-chrono-bar {
@@ -1987,6 +1988,7 @@
         <h2>Copie envoyée avec succès !</h2>
         <div class="info-grid" id="pse-recepisse-info"></div>
         <button class="btn-print" id="pse-btn-print" style="display:none;" onclick="window.print()">🖨️ Imprimer mon récépissé</button>
+        <button id="pse-btn-close-recepisse" style="margin-top:12px;padding:10px 28px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;border-radius:8px;font-size:1em;cursor:pointer;font-weight:600;" onclick="document.getElementById('pse-recepisse').classList.remove('active');">✕ Fermer</button>
     </div>
 </div>
 
