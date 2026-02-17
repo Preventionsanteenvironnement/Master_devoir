@@ -2845,16 +2845,28 @@ ${embeddedBlueprintScript}
         document.getElementById('devoir-id').value = meta.devoirId || data.devoirId || "";
         document.getElementById('niveau-cible').value = meta.niveau || data.niveau || "";
         // Restaurer les options (checkbox + classe active sur carte)
+        // SEULEMENT si aucune option n'est déjà cochée (= Master vierge)
+        const optionsDejaConfigurees =
+            document.getElementById('opt-recepisse')?.checked ||
+            document.getElementById('opt-2chance')?.checked ||
+            document.getElementById('opt-chrono')?.checked;
+
         function restoreOptCard(checkboxId, cardId, isChecked) {
             const cb = document.getElementById(checkboxId);
             const card = document.getElementById(cardId);
             if (cb) cb.checked = !!isChecked;
             if (card) card.classList.toggle('active', !!isChecked);
         }
-        restoreOptCard('opt-recepisse', 'card-recepisse', opts.recepisse);
-        restoreOptCard('opt-2chance', 'card-2chance', opts.secondeChance);
-        restoreOptCard('opt-chrono', 'card-chrono', opts.chrono);
-        document.getElementById('opt-chrono-minutes').value = opts.chronoMinutes || "";
+
+        if (!optionsDejaConfigurees) {
+            restoreOptCard('opt-recepisse', 'card-recepisse', opts.recepisse);
+            restoreOptCard('opt-2chance', 'card-2chance', opts.secondeChance);
+            restoreOptCard('opt-chrono', 'card-chrono', opts.chrono);
+            document.getElementById('opt-chrono-minutes').value = opts.chronoMinutes || "";
+            console.log("📋 Options restaurées depuis le draft");
+        } else {
+            console.log("📋 Options actuelles conservées (déjà configurées par l'enseignant)");
+        }
         document.getElementById('quiz-content').innerHTML = '';
         qCount = 0;
 
@@ -3034,18 +3046,31 @@ ${embeddedBlueprintScript}
         document.getElementById("devoir-id").value = data.devoirId || "";
         document.getElementById("niveau-cible").value = data.niveau || "Bac Pro";
         // Restaurer les options depuis le blueprint
-        // Restaurer les options depuis le blueprint
+        // SEULEMENT si aucune option n'est déjà cochée (= Master vierge)
         const bpOpts = data.options || {};
+        const optionsDejaConfigurees =
+            document.getElementById('opt-recepisse')?.checked ||
+            document.getElementById('opt-2chance')?.checked ||
+            document.getElementById('opt-chrono')?.checked;
+
         function restoreOptCard2(checkboxId, cardId, isChecked) {
             const cb = document.getElementById(checkboxId);
             const card = document.getElementById(cardId);
             if (cb) cb.checked = !!isChecked;
             if (card) card.classList.toggle('active', !!isChecked);
         }
-        restoreOptCard2('opt-recepisse', 'card-recepisse', bpOpts.recepisse);
-        restoreOptCard2('opt-2chance', 'card-2chance', bpOpts.secondeChance);
-        restoreOptCard2('opt-chrono', 'card-chrono', bpOpts.chrono);
-        document.getElementById('opt-chrono-minutes').value = bpOpts.chronoMinutes || "";
+
+        if (!optionsDejaConfigurees) {
+            // Aucune option cochée → restaurer depuis le JSON
+            restoreOptCard2('opt-recepisse', 'card-recepisse', bpOpts.recepisse);
+            restoreOptCard2('opt-2chance', 'card-2chance', bpOpts.secondeChance);
+            restoreOptCard2('opt-chrono', 'card-chrono', bpOpts.chrono);
+            document.getElementById('opt-chrono-minutes').value = bpOpts.chronoMinutes || "";
+            console.log("📋 Options restaurées depuis le blueprint");
+        } else {
+            // Des options sont déjà configurées → les conserver
+            console.log("📋 Options actuelles conservées (déjà configurées par l'enseignant)");
+        }
         showNotification("🔄 Reconstruction en cours...", "info");
 
         setTimeout(() => {
